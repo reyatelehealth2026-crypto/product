@@ -15,7 +15,10 @@ import {
   Download,
   Upload,
   FileJson,
-  AlertCircle
+  AlertCircle,
+  Loader2,
+  Globe,
+  ChevronDown
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,8 +28,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
-import type { Product, ProductUnit, SelectedProduct } from '@/types/product';
-import { generateFlexMessage } from '@/types/product';
+import type { Product, ProductUnit, SelectedProduct, FlashSaleProduct, FlashSaleResponse, BroadcastItem, BroadcastCategory } from '@/types/product';
+import { generateFlexMessage, productToBroadcastItem, flashSaleToBroadcastItem, generateBroadcastCarousel } from '@/types/product';
 import { SAMPLE_PRODUCTS } from './sample-data';
 
 interface ProductSelectorProps {
@@ -54,6 +57,11 @@ export default function ProductSelector({ initialProducts = SAMPLE_PRODUCTS }: P
   const [copied, setCopied] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [bubbleCount, setBubbleCount] = useState(6);
+  const [flashSaleLoading, setFlashSaleLoading] = useState(false);
+  const [apiLoading, setApiLoading] = useState(false);
+  const [flashSaleProducts, setFlashSaleProducts] = useState<FlashSaleProduct[]>([]);
+  const [flashSaleMenuName, setFlashSaleMenuName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Filter products
@@ -161,6 +169,55 @@ export default function ProductSelector({ initialProducts = SAMPLE_PRODUCTS }: P
     setDataSource('sample');
     setUploadError(null);
     setSelectedItems(new Map());
+    setFlashSaleProducts([]);
+    setFlashSaleMenuName('');
+  }, []);
+
+  // Fetch Flash Sale from API
+  const fetchFlashSale = useCallback(async () => {
+    setFlashSaleLoading(true);
+    setUploadError(null);
+    try {
+      const res = await fetch('/api/flashsale?id=116');
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || 'Failed to fetch');
+
+      const data: FlashSaleResponse = json.data;
+      const allProducts = data.flashsale.flat();
+      setFlashSaleProducts(allProducts);
+      setFlashSaleMenuName(data.flasSale_menu?.[0]?.name || 'Flash Sale');
+      setActiveFilter('flashsale');
+      setDataSource('api');
+      setSelectedItems(new Map());
+    } catch (err) {
+      setUploadError(`ไม่สามารถดึงข้อมูล Flash Sale ได้: ${(err as Error).message}`);
+    } finally {
+      setFlashSaleLoading(false);
+    }
+  }, []);
+
+  // Fetch products from API
+  const fetchFromApi = useCallback(async (page: number = 1) => {
+    setApiLoading(true);
+    setUploadError(null);
+    try {
+      const apiUrl = encodeURIComponent(`https://www.cnypharmacy.com/api/getDataProductIsGroup?page=${page}`);
+      const res = await fetch(`/api/products?url=${apiUrl}`);
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || 'Failed to fetch');
+
+      const productArray: Product[] = json.data.product || [];
+      if (productArray.length === 0) throw new Error('ไม่พบข้อมูลสินค้า');
+
+      setProducts(productArray);
+      setDataSource('api');
+      setFlashSaleProducts([]);
+      setSelectedItems(new Map());
+    } catch (err) {
+      setUploadError(`ไม่สามารถดึงข้อมูลสินค้าได้: ${(err as Error).message}`);
+    } finally {
+      setApiLoading(false);
+    }
   }, []);
 
   // Toggle selection
@@ -187,9 +244,20 @@ export default function ProductSelector({ initialProducts = SAMPLE_PRODUCTS }: P
 
   // Generate Flex Message JSON
   const flexMessageJson = useMemo(() => {
+    // If flash sale products exist and filter is flashsale, use them
+    if (flashSaleProducts.length > 0 && activeFilter === 'flashsale') {
+      const broadcastItems = flashSaleProducts.map(flashSaleToBroadcastItem);
+      return JSON.stringify(generateBroadcastCarousel(broadcastItems, 'flashsale', bubbleCount), null, 2);
+    }
+
+    // Otherwise use selected products
     const items = Array.from(selectedItems.values());
-    return JSON.stringify(generateFlexMessage(items, activeFilter), null, 2);
-  }, [selectedItems, activeFilter]);
+    if (items.length === 0) return '{}';
+
+    const broadcastItems = items.map(item => productToBroadcastItem(item.product));
+    const category = (activeFilter === 'all' ? 'all' : activeFilter) as BroadcastCategory;
+    return JSON.stringify(generateBroadcastCarousel(broadcastItems, category, bubbleCount), null, 2);
+  }, [selectedItems, activeFilter, bubbleCount, flashSaleProducts]);
 
   // Copy to clipboard
   const copyToClipboard = async () => {
@@ -270,6 +338,50 @@ export default function ProductSelector({ initialProducts = SAMPLE_PRODUCTS }: P
                   >
                     ใช้ตัวอย่าง
                   </Button>
+                )}
+              </div>
+
+              {/* API Buttons Row */}
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fetchFlashSale}
+                  disabled={flashSaleLoading}
+                  className="bg-yellow-50 border-yellow-300 text-yellow-800 hover:bg-yellow-100"
+                >
+                  {flashSaleLoading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Zap className="w-4 h-4 mr-1" />}
+                  ดึง Flash Sale
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fetchFromApi(1)}
+                  disabled={apiLoading}
+                  className="bg-blue-50 border-blue-300 text-blue-800 hover:bg-blue-100"
+                >
+                  {apiLoading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Globe className="w-4 h-4 mr-1" />}
+                  ดึงจาก API
+                </Button>
+
+                <div className="flex items-center gap-1.5 ml-auto">
+                  <span className="text-xs text-gray-500">Bubble:</span>
+                  <select
+                    value={bubbleCount}
+                    onChange={(e) => setBubbleCount(Number(e.target.value))}
+                    className="text-sm border border-gray-300 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  >
+                    {[1, 2, 3, 4, 5, 6, 7].map(n => (
+                      <option key={n} value={n}>{n} ({n * 9} สินค้า)</option>
+                    ))}
+                  </select>
+                </div>
+
+                {flashSaleProducts.length > 0 && (
+                  <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full font-medium">
+                    ⚡ {flashSaleMenuName} ({flashSaleProducts.length} รายการ)
+                  </span>
                 )}
               </div>
 
@@ -509,22 +621,26 @@ export default function ProductSelector({ initialProducts = SAMPLE_PRODUCTS }: P
         </div>
 
         {/* Floating Action Button */}
-        {selectedCount > 0 && (
+        {(selectedCount > 0 || flashSaleProducts.length > 0) && (
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3">
             {/* Selected Count Card */}
             <div className="bg-white rounded-full shadow-lg border px-4 py-2 flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center font-bold text-sm">
-                {selectedCount}
+                {flashSaleProducts.length > 0 ? flashSaleProducts.length : selectedCount}
               </div>
-              <span className="text-sm font-medium text-gray-700">รายการที่เลือก</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0 rounded-full hover:bg-red-50 hover:text-red-600"
-                onClick={clearSelections}
-              >
-                <X className="w-4 h-4" />
-              </Button>
+              <span className="text-sm font-medium text-gray-700">
+                {flashSaleProducts.length > 0 ? 'Flash Sale' : 'รายการที่เลือก'}
+              </span>
+              {selectedCount > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 rounded-full hover:bg-red-50 hover:text-red-600"
+                  onClick={clearSelections}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              )}
             </div>
 
             {/* Generate Flex Button */}
@@ -550,35 +666,63 @@ export default function ProductSelector({ initialProducts = SAMPLE_PRODUCTS }: P
             </DialogHeader>
 
             <div className="p-6 space-y-4">
-              {/* Selected Items Summary */}
+              {/* Items Summary */}
               <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">สินค้าที่เลือก ({selectedCount} รายการ)</h4>
-                <ScrollArea className="h-32">
-                  <div className="space-y-2">
-                    {Array.from(selectedItems.values()).map((item, idx) => {
-                      const data = item.product.product_data[0];
-                      const price = item.product.product_price[0]?.product_price[0];
-                      const displayPrice = price?.promotion_price !== '0.00' 
-                        ? parseFloat(price.promotion_price) 
-                        : parseFloat(price?.price || '0');
-                      
-                      return (
-                        <div key={data.id} className="flex items-center justify-between text-sm bg-white p-2 rounded border">
-                          <div className="flex items-center gap-2">
-                            <span className="w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-xs font-bold">
-                              {idx + 1}
-                            </span>
-                            <span className="truncate max-w-[200px]">{data.name}</span>
+                {flashSaleProducts.length > 0 && activeFilter === 'flashsale' ? (
+                  <>
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">
+                      ⚡ {flashSaleMenuName} ({flashSaleProducts.length} รายการ) — {bubbleCount} bubble(s)
+                    </h4>
+                    <ScrollArea className="h-32">
+                      <div className="space-y-2">
+                        {flashSaleProducts.map((item, idx) => (
+                          <div key={item.id} className="flex items-center justify-between text-sm bg-white p-2 rounded border">
+                            <div className="flex items-center gap-2">
+                              <span className="w-5 h-5 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center text-xs font-bold">
+                                {idx + 1}
+                              </span>
+                              <span className="truncate max-w-[200px]">{item.name}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="text-gray-400 line-through text-xs">฿{parseFloat(item.red_price).toLocaleString()}</span>
+                              <span className="font-medium text-red-600">฿{parseFloat(item.dark_price).toLocaleString()}</span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-gray-500">x{item.quantity}</span>
-                            <span className="font-medium text-red-600">฿{displayPrice.toLocaleString()}</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </ScrollArea>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </>
+                ) : (
+                  <>
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">สินค้าที่เลือก ({selectedCount} รายการ) — {bubbleCount} bubble(s)</h4>
+                    <ScrollArea className="h-32">
+                      <div className="space-y-2">
+                        {Array.from(selectedItems.values()).map((item, idx) => {
+                          const data = item.product.product_data[0];
+                          const price = item.product.product_price[0]?.product_price[0];
+                          const displayPrice = price?.promotion_price !== '0.00' 
+                            ? parseFloat(price.promotion_price) 
+                            : parseFloat(price?.price || '0');
+                          
+                          return (
+                            <div key={data.id} className="flex items-center justify-between text-sm bg-white p-2 rounded border">
+                              <div className="flex items-center gap-2">
+                                <span className="w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-xs font-bold">
+                                  {idx + 1}
+                                </span>
+                                <span className="truncate max-w-[200px]">{data.name}</span>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <span className="text-gray-500">x{item.quantity}</span>
+                                <span className="font-medium text-red-600">฿{displayPrice.toLocaleString()}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </ScrollArea>
+                  </>
+                )}
               </div>
 
               {/* JSON Output */}
