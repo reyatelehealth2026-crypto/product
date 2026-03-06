@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
   }
   
   try {
-    const imageUrl = `https://www.cnypharmacy.com/${path}`;
+    const imageUrl = `https://manage.cnypharmacy.com/${path}`;
     const response = await fetch(imageUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
