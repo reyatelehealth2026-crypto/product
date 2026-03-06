@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Check, Package } from 'lucide-react';
+import { Check, Package, X } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -28,7 +28,11 @@ export default function ProductCard({ product, selected, onToggle }: ProductCard
     ? Math.round(((Number(product.basePrice) - Number(product.promotionPrice!)) / Number(product.basePrice)) * 100)
     : 0;
   
-  const activePromotion = product.promotions[0];
+  // Stock status
+  const isInStock = product.stockQuantity > 0;
+  
+  // Filter valid hashtags
+  const validHashtags = hashtags.filter(tag => tag && tag.trim() !== '');
 
   return (
     <Card
@@ -62,11 +66,6 @@ export default function ProductCard({ product, selected, onToggle }: ProductCard
         {product.isRecommend && (
           <Badge className="bg-purple-500 text-white text-xs">แนะนำ</Badge>
         )}
-        {product.isRx && (
-          <Badge variant="outline" className="bg-red-50 text-red-600 border-red-200 text-xs">
-            ยาตามใบสั่ง
-          </Badge>
-        )}
       </div>
 
       {/* Image */}
@@ -84,7 +83,7 @@ export default function ProductCard({ product, selected, onToggle }: ProductCard
           />
         ) : null}
         
-        {/* Fallback placeholder - always visible if no image or image failed */}
+        {/* Fallback placeholder */}
         <div className={cn(
           "w-full h-full flex flex-col items-center justify-center bg-gray-100",
           images[0]?.photo_path ? "absolute inset-0 -z-10" : ""
@@ -96,82 +95,92 @@ export default function ProductCard({ product, selected, onToggle }: ProductCard
 
       {/* Content */}
       <CardContent className="p-3 space-y-2">
-        {/* SKU */}
-        <p className="text-[10px] text-gray-400 font-mono">{product.sku}</p>
+        {/* Promotion Badge - Special Offer Style */}
+        {hasDiscount && (
+          <div className="flex flex-wrap gap-1 mb-2">
+            <span className="px-2 py-0.5 bg-cyan-100 text-cyan-700 text-[10px] rounded">
+              เริ่ม 0 ชิ้น
+            </span>
+            <span className="px-2 py-0.5 bg-cyan-100 text-cyan-700 text-[10px] rounded">
+              ขั้นต่ำ 0 ชิ้น
+            </span>
+          </div>
+        )}
         
-        {/* Name */}
-        <h3 className="font-medium text-sm text-gray-900 line-clamp-2 min-h-[2.5rem] leading-tight">
+        {/* Special Offer Badge */}
+        {hasDiscount && (
+          <div className="bg-red-500 text-white text-center py-1 px-2 rounded-md text-xs font-bold mb-2">
+            SPECIAL OFFER
+          </div>
+        )}
+        
+        {/* Stock Status */}
+        <div className="flex items-center justify-center gap-4 mb-2">
+          <div className={cn(
+            "w-6 h-6 rounded-full flex items-center justify-center",
+            isInStock ? "bg-green-500 text-white" : "bg-red-500 text-white"
+          )}>
+            {isInStock ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
+          </div>
+        </div>
+
+        {/* SKU & Name */}
+        <p className="text-xs text-gray-500 text-center">รหัสสินค้า {product.sku}</p>
+        
+        <h3 className="font-medium text-sm text-gray-900 line-clamp-2 min-h-[2.5rem] leading-tight text-center">
           {product.name}
         </h3>
         
         {/* Spec */}
         {product.specName && (
-          <p className="text-xs text-gray-500 line-clamp-1">{product.specName}</p>
+          <p className="text-xs text-gray-500 line-clamp-1 text-center">{product.specName}</p>
         )}
         
-        {/* Promotion Details */}
-        {activePromotion && (
-          <div className="bg-orange-50 border border-orange-200 rounded-md p-2 text-xs">
-            <p className="font-medium text-orange-700">
-              {activePromotion.badgeText || 'โปรโมชั่นพิเศษ'}
-            </p>
-            {activePromotion.startDate && activePromotion.endDate && (
-              <p className="text-orange-600 mt-0.5">
-                {new Date(activePromotion.startDate).toLocaleDateString('th-TH')} - {new Date(activePromotion.endDate).toLocaleDateString('th-TH')}
-              </p>
-            )}
-            {activePromotion.discountPercent && (
-              <p className="text-red-600 font-bold mt-0.5">
-                ลด {activePromotion.discountPercent}%
-              </p>
-            )}
+        {/* Promotion Condition Box */}
+        {hasDiscount && (
+          <div className="border border-red-200 rounded-md p-2 text-center text-xs text-red-600 bg-red-50">
+            <p>ซื้อ 2 กล่อง(50ชิ้น) ขึ้นไป ลดต่อชิ้นละ 4.00 บาท</p>
           </div>
         )}
         
-        {/* Hashtags */}
-        {hashtags.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {hashtags.slice(0, 3).map((tag, i) => (
-              <span key={i} className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
-                #{tag}
-              </span>
-            ))}
-            {hashtags.length > 3 && (
-              <span className="text-[10px] text-gray-400">+{hashtags.length - 3}</span>
-            )}
-          </div>
-        )}
-        
-        {/* Units */}
-        {units.length > 0 && (
-          <p className="text-xs text-gray-500">
-            {units.map(u => `${u.contain} ${u.unit}`).join(', ')}
-          </p>
-        )}
-        
-        {/* Price */}
-        <div className="flex items-baseline gap-2 pt-1">
-          <span className="text-lg font-bold text-red-600">
-            ฿{Number(displayPrice).toLocaleString()}
-          </span>
-          {hasDiscount && (
+        {/* Price Section */}
+        <div className="text-center pt-2">
+          {hasDiscount ? (
             <>
-              <span className="text-xs text-gray-400 line-through">
-                ฿{Number(product.basePrice).toLocaleString()}
-              </span>
-              <Badge className="bg-red-100 text-red-600 text-xs">
-                -{discountPercent}%
-              </Badge>
+              <p className="text-sm text-gray-400 line-through">
+                ฿{Number(product.basePrice).toLocaleString()} / {units[0]?.unit || 'ชิ้น'}
+              </p>
+              <p className="text-lg font-bold text-red-600">
+                ฿{Number(displayPrice).toLocaleString()} / {units[0]?.unit || 'ชิ้น'}
+              </p>
             </>
+          ) : (
+            <p className="text-lg font-bold text-red-600">
+              ฿{Number(displayPrice).toLocaleString()} / {units[0]?.unit || 'ชิ้น'}
+            </p>
           )}
         </div>
         
-        {/* Stock */}
+        {/* Hashtags - Yellow Style */}
+        {validHashtags.length > 0 && (
+          <div className="flex flex-wrap justify-center gap-1 pt-2">
+            {validHashtags.slice(0, 3).map((tag, i) => (
+              <span 
+                key={i} 
+                className="px-2 py-0.5 bg-yellow-300 text-yellow-800 text-[10px] rounded font-medium"
+              >
+                #{tag}
+              </span>
+            ))}
+          </div>
+        )}
+        
+        {/* Stock Text */}
         <p className={cn(
-          "text-xs",
-          product.stockQuantity < 10 ? "text-red-500" : "text-green-600"
+          "text-xs text-center",
+          isInStock ? "text-green-600" : "text-red-500"
         )}>
-          คงเหลือ: {product.stockQuantity} {product.stockUnit || 'ชิ้น'}
+          {isInStock ? `คงเหลือ: ${product.stockQuantity} ${product.stockUnit || 'ชิ้น'}` : 'สินค้าหมด'}
         </p>
       </CardContent>
     </Card>
