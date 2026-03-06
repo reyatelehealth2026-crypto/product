@@ -44,6 +44,22 @@ interface JsonProduct {
   customer_buyed: number;
 }
 
+// Safe JSON parse with error handling
+function safeJsonParse(content: string) {
+  try {
+    // Remove BOM if present
+    if (content.charCodeAt(0) === 0xFEFF) {
+      content = content.slice(1);
+    }
+    return JSON.parse(content);
+  } catch (e) {
+    console.error('JSON parse error:', e);
+    // Try to fix common issues
+    content = content.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t');
+    return JSON.parse(content);
+  }
+}
+
 // Bulk import from JSON file - FAST!
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -76,11 +92,23 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    const stats = fs.statSync(filePath);
+    console.log(`File size: ${(stats.size / 1024).toFixed(2)} KB`);
+    
     const fileContent = fs.readFileSync(filePath, 'utf8');
-    const data = JSON.parse(fileContent);
+    console.log(`File read complete, parsing JSON...`);
+    
+    const data = safeJsonParse(fileContent);
     const products: JsonProduct[] = data.product || [];
     
     console.log(`Found ${products.length} products in JSON file`);
+    
+    if (products.length === 0) {
+      return NextResponse.json(
+        { error: 'No products found in JSON file. Check file format.' },
+        { status: 400 }
+      );
+    }
     
     let successCount = 0;
     let errorCount = 0;
@@ -96,93 +124,88 @@ export async function POST(request: NextRequest) {
       console.log(`Found ${existingIds.size} existing products, will skip duplicates`);
     }
     
-    // Process in batches
-    const batches = [];
-    for (let i = 0; i < products.length; i += batchSize) {
-      batches.push(products.slice(i, i + batchSize));
-    }
+    // Process sequentially instead of parallel (safer for large batches)
+    console.log(`Processing ${products.length} products...`);
     
-    console.log(`Processing ${batches.length} batches of ${batchSize}...`);
-    
-    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
-      const batch = batches[batchIndex];
-      console.log(`Processing batch ${batchIndex + 1}/${batches.length}...`);
+    for (let i = 0; i < products.length; i++) {
+      const item = products[i];
       
-      // Process batch with Promise.all for speed
-      await Promise.all(
-        batch.map(async (item) => {
-          try {
-            const productData = item.product_data?.[0];
-            const productPrice = item.product_price?.[0]?.product_price?.[0];
-            const productStock = item.product_stock?.[0];
-            
-            if (!productData) {
-              errorCount++;
-              return;
-            }
-            
-            // Skip if already exists
-            if (!clearExisting && existingIds.has(productData.id)) {
-              skippedCount++;
-              return;
-            }
-            
-            await prisma.product.upsert({
-              where: { productId: productData.id },
-              update: {
-                sku: productData.sku,
-                barcode: productData.barcode || null,
-                name: productData.name,
-                nameEn: productData.name_en || null,
-                specName: productData.spec_name || null,
-                basePrice: parseFloat(productPrice?.price || '0'),
-                promotionPrice: productPrice?.promotion_price !== '0.00' 
-                  ? parseFloat(productPrice.promotion_price) 
-                  : null,
-                stockQuantity: parseInt(productStock?.stock_num || '0'),
-                stockUnit: productStock?.unit_name || null,
-                isRx: productData.is_rx === 1,
-                isPromotion: productData.is_promotion === 1,
-                isFlashsale: item.product_is_flashSale === 1,
-                isBestseller: productData.is_bestseller === 1,
-                isRecommend: item.product_is_recommend === 1,
-                images: item.product_photo || [],
-                hashtags: productData.hashtags || [],
-                units: item.product_unit || [],
-                relatedProducts: item.related_products || [],
-              },
-              create: {
-                productId: productData.id,
-                sku: productData.sku,
-                barcode: productData.barcode || null,
-                name: productData.name,
-                nameEn: productData.name_en || null,
-                specName: productData.spec_name || null,
-                basePrice: parseFloat(productPrice?.price || '0'),
-                promotionPrice: productPrice?.promotion_price !== '0.00' 
-                  ? parseFloat(productPrice.promotion_price) 
-                  : null,
-                stockQuantity: parseInt(productStock?.stock_num || '0'),
-                stockUnit: productStock?.unit_name || null,
-                isRx: productData.is_rx === 1,
-                isPromotion: productData.is_promotion === 1,
-                isFlashsale: item.product_is_flashSale === 1,
-                isBestseller: productData.is_bestseller === 1,
-                isRecommend: item.product_is_recommend === 1,
-                images: item.product_photo || [],
-                hashtags: productData.hashtags || [],
-                units: item.product_unit || [],
-                relatedProducts: item.related_products || [],
-              },
-            });
-            
-            successCount++;
-          } catch (err) {
-            console.error(`Error importing product ${item.product_data?.[0]?.id}:`, err);
-            errorCount++;
-          }
-        })
-      );
+      // Log progress every 100 items
+      if (i % 100 === 0) {
+        console.log(`Processing ${i + 1}/${products.length}...`);
+      }
+      
+      try {
+        const productData = item.product_data?.[0];
+        const productPrice = item.product_price?.[0]?.product_price?.[0];
+        const productStock = item.product_stock?.[0];
+        
+        if (!productData) {
+          console.log(`Skipping item ${i}: no product_data`);
+          errorCount++;
+          continue;
+        }
+        
+        // Skip if already exists
+        if (!clearExisting && existingIds.has(productData.id)) {
+          skippedCount++;
+          continue;
+        }
+        
+        await prisma.product.upsert({
+          where: { productId: productData.id },
+          update: {
+            sku: productData.sku,
+            barcode: productData.barcode || null,
+            name: productData.name,
+            nameEn: productData.name_en || null,
+            specName: productData.spec_name || null,
+            basePrice: parseFloat(productPrice?.price || '0'),
+            promotionPrice: productPrice?.promotion_price !== '0.00' 
+              ? parseFloat(productPrice.promotion_price) 
+              : null,
+            stockQuantity: parseInt(productStock?.stock_num || '0'),
+            stockUnit: productStock?.unit_name || null,
+            isRx: productData.is_rx === 1,
+            isPromotion: productData.is_promotion === 1,
+            isFlashsale: item.product_is_flashSale === 1,
+            isBestseller: productData.is_bestseller === 1,
+            isRecommend: item.product_is_recommend === 1,
+            images: item.product_photo || [],
+            hashtags: productData.hashtags || [],
+            units: item.product_unit || [],
+            relatedProducts: item.related_products || [],
+          },
+          create: {
+            productId: productData.id,
+            sku: productData.sku,
+            barcode: productData.barcode || null,
+            name: productData.name,
+            nameEn: productData.name_en || null,
+            specName: productData.spec_name || null,
+            basePrice: parseFloat(productPrice?.price || '0'),
+            promotionPrice: productPrice?.promotion_price !== '0.00' 
+              ? parseFloat(productPrice.promotion_price) 
+              : null,
+            stockQuantity: parseInt(productStock?.stock_num || '0'),
+            stockUnit: productStock?.unit_name || null,
+            isRx: productData.is_rx === 1,
+            isPromotion: productData.is_promotion === 1,
+            isFlashsale: item.product_is_flashSale === 1,
+            isBestseller: productData.is_bestseller === 1,
+            isRecommend: item.product_is_recommend === 1,
+            images: item.product_photo || [],
+            hashtags: productData.hashtags || [],
+            units: item.product_unit || [],
+            relatedProducts: item.related_products || [],
+          },
+        });
+        
+        successCount++;
+      } catch (err) {
+        console.error(`Error importing product ${item.product_data?.[0]?.id || i}:`, err);
+        errorCount++;
+      }
     }
     
     const duration = (Date.now() - startTime) / 1000;
@@ -232,15 +255,26 @@ export async function GET() {
   const fileExists = fs.existsSync(filePath);
   
   let fileStats = null;
+  let productCountInFile = 0;
+  
   if (fileExists) {
     const stats = fs.statSync(filePath);
-    const content = fs.readFileSync(filePath, 'utf8');
-    const data = JSON.parse(content);
-    fileStats = {
-      size: `${(stats.size / 1024 / 1024).toFixed(2)} MB`,
-      products: data.product?.length || 0,
-      modified: stats.mtime,
-    };
+    try {
+      const content = fs.readFileSync(filePath, 'utf8');
+      const data = safeJsonParse(content);
+      productCountInFile = data.product?.length || 0;
+      fileStats = {
+        size: `${(stats.size / 1024).toFixed(2)} MB`,
+        products: productCountInFile,
+        modified: stats.mtime,
+      };
+    } catch (e) {
+      fileStats = {
+        size: `${(stats.size / 1024).toFixed(2)} MB`,
+        error: 'Failed to parse JSON',
+        modified: stats.mtime,
+      };
+    }
   }
   
   const productCount = await prisma.product.count();
