@@ -78,16 +78,19 @@ export default function ProductCard({ product, selected, onToggle }: ProductCard
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
             loading="lazy"
             onError={(e) => {
+              console.error(`Image failed to load: ${images[0].photo_path}`);
               (e.target as HTMLImageElement).style.display = 'none';
             }}
           />
         ) : null}
         
+        {/* Fallback placeholder - always visible if no image or image failed */}
         <div className={cn(
-          "w-full h-full flex items-center justify-center bg-gray-100",
-          images[0]?.photo_path && "absolute inset-0 -z-10"
+          "w-full h-full flex flex-col items-center justify-center bg-gray-100",
+          images[0]?.photo_path ? "absolute inset-0 -z-10" : ""
         )}>
-          <Package className="w-10 h-10 text-gray-300" />
+          <Package className="w-10 h-10 text-gray-300 mb-2" />
+          <span className="text-[10px] text-gray-400">{product.sku}</span>
         </div>
       </div>
 
