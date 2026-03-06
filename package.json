@@ -1,0 +1,13 @@
+{
+  "name": "cny-product-selector",
+  "version": "1.0.0",
+  "description": "CNY Pharmacy Product Selector - LINE Flex Message Generator",
+  "scripts": {
+    "dev": "cd my-app && npm run dev",
+    "build": "cd my-app && npm run build",
+    "start": "cd my-app && npx serve dist"
+  },
+  "keywords": ["product-selector", "line-flex", "pharmacy", "nextjs"],
+  "author": "CNY Pharmacy",
+  "license": "MIT"
+}

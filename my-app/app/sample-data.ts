@@ -1,0 +1,352 @@
+import type { Product } from '@/types/product';
+
+export const SAMPLE_PRODUCTS: Product[] = [
+  {
+    product_data: [{
+      id: 7460,
+      sku: "7705",
+      barcode: "7705",
+      name_en: "จิ่วเจิ้งปู่เซิน 6SAC [JTH] กล่องน้ำเงินทอง",
+      name: "จิ่วเจิ้งปู่เซินเจี๋ยวหนัง 1กล่อง 6 ซอง",
+      spec_name: "ตังถั่งเฉ้าสกัด,ตังกุยผง,ชะเอมเทศผง,โสมสกัด",
+      is_recommend: 0,
+      is_promotion: 1,
+      is_bestseller: 0,
+      is_rx: 0
+    }],
+    product_photo: [{ photo_path: "uploads/product_photo/1772696652_1.jpg" }],
+    product_unit: [{ id: 10266, target_id: 7460, unit: "กล่อง[6ซอง]", unit_num: "1.00", contain: "1.00" }],
+    product_price: [{ product_price: [{ id: 77572, price_level_id: 1, product_unit_id: 10266, price: "360.00", promotion_price: "290.00", buy_max: 0, buy_min: 0 }] }],
+    product_stock: [{ productLotId: 10266, stock_num: "25.00", expiry_date: null }],
+    product_wishlists: 0,
+    product_related_lists: [],
+    product_hashtag: [],
+    product_hashtag_new: [],
+    customer_buyed: 15,
+    product_is_flashSale: 1,
+    product_is_recommend: 0,
+    product_flasSale: [],
+    is_rx: 0
+  },
+  {
+    product_data: [{
+      id: 7459,
+      sku: "7704",
+      barcode: "7704",
+      name_en: "น้ำเกลือจุกแหลม KLEAN&KARE NORMAL KARE 500ML",
+      name: "น้ำเกลือคลีนแอนด์แคร์ นอร์มอลซาไลน์ 500 มล",
+      spec_name: "SODIUM CHLORIDE",
+      is_recommend: 1,
+      is_promotion: 1,
+      is_bestseller: 1,
+      is_rx: 0
+    }],
+    product_photo: [{ photo_path: "uploads/product_photo/1772696617_1.jpg" }],
+    product_unit: [
+      { id: 10263, target_id: 7459, unit: "ลัง[24ขวด]", unit_num: "24.00", contain: "1.00" },
+      { id: 10265, target_id: 7459, unit: "ขวด[500ML]", unit_num: "1.00", contain: "1.00" }
+    ],
+    product_price: [{ product_price: [{ id: 77564, price_level_id: 1, product_unit_id: 10265, price: "35.00", promotion_price: "26.00", buy_max: 0, buy_min: 0 }] }],
+    product_stock: [{ productLotId: 10265, stock_num: "150.00", expiry_date: null }],
+    product_wishlists: 0,
+    product_related_lists: [],
+    product_hashtag: [],
+    product_hashtag_new: [],
+    customer_buyed: 89,
+    product_is_flashSale: 1,
+    product_is_recommend: 1,
+    product_flasSale: [],
+    is_rx: 0
+  },
+  {
+    product_data: [{
+      id: 7458,
+      sku: "7702",
+      barcode: "7702",
+      name_en: "OXYNOSE SPRAY 0.05% 10ML",
+      name: "ออกซีโนส สเปรย์ 0.05% 10มล",
+      spec_name: "OXYMETAZOLINE HYDROCHLORIDE",
+      is_recommend: 0,
+      is_promotion: 1,
+      is_bestseller: 0,
+      is_rx: 1
+    }],
+    product_photo: [{ photo_path: "uploads/product_photo/1772696564_1.png" }],
+    product_unit: [{ id: 10262, target_id: 7458, unit: "ขวด[10ML]", unit_num: "1.00", contain: "1.00" }],
+    product_price: [{ product_price: [{ id: 77540, price_level_id: 1, product_unit_id: 10262, price: "95.00", promotion_price: "75.00", buy_max: 0, buy_min: 0 }] }],
+    product_stock: [{ productLotId: 10262, stock_num: "8.00", expiry_date: null }],
+    product_wishlists: 0,
+    product_related_lists: [],
+    product_hashtag: [],
+    product_hashtag_new: [],
+    customer_buyed: 45,
+    product_is_flashSale: 1,
+    product_is_recommend: 0,
+    product_flasSale: [],
+    is_rx: 1
+  },
+  {
+    product_data: [{
+      id: 7457,
+      sku: "7701",
+      barcode: "7701",
+      name_en: "BILANOSE 20MG 1X10'S",
+      name: "ไบลาโนส 20มก 1แผง 10เม็ด",
+      spec_name: "BILASTINE 20MG",
+      is_recommend: 1,
+      is_promotion: 1,
+      is_bestseller: 1,
+      is_rx: 1
+    }],
+    product_photo: [{ photo_path: "uploads/product_photo/1772696522_1.png" }],
+    product_unit: [{ id: 10261, target_id: 7457, unit: "กล่อง[1แผง]", unit_num: "1.00", contain: "1.00" }],
+    product_price: [{ product_price: [{ id: 77532, price_level_id: 1, product_unit_id: 10261, price: "195.00", promotion_price: "165.00", buy_max: 0, buy_min: 0 }] }],
+    product_stock: [{ productLotId: 10261, stock_num: "42.00", expiry_date: null }],
+    product_wishlists: 0,
+    product_related_lists: [],
+    product_hashtag: [],
+    product_hashtag_new: [],
+    customer_buyed: 120,
+    product_is_flashSale: 0,
+    product_is_recommend: 1,
+    product_flasSale: [],
+    is_rx: 1
+  },
+  {
+    product_data: [{
+      id: 7456,
+      sku: "7694",
+      barcode: "7694",
+      name_en: "SHARP เครื่องปั่นน้ำผลไม้ รุ่น EM-14 1L",
+      name: "เครื่องปั่นน้ำผลไม้",
+      spec_name: "",
+      is_recommend: 0,
+      is_promotion: 1,
+      is_bestseller: 0,
+      is_rx: 0
+    }],
+    product_photo: [{ photo_path: "uploads/product_photo/1772419991_1.png" }],
+    product_unit: [{ id: 10260, target_id: 7456, unit: "เครื่อง", unit_num: "1.00", contain: "1.00" }],
+    product_price: [{ product_price: [{ id: 77520, price_level_id: 1, product_unit_id: 10260, price: "1290.00", promotion_price: "990.00", buy_max: 0, buy_min: 0 }] }],
+    product_stock: [{ productLotId: 10260, stock_num: "3.00", expiry_date: null }],
+    product_wishlists: 0,
+    product_related_lists: [],
+    product_hashtag: [],
+    product_hashtag_new: [],
+    customer_buyed: 5,
+    product_is_flashSale: 1,
+    product_is_recommend: 0,
+    product_flasSale: [],
+    is_rx: 0
+  },
+  {
+    product_data: [{
+      id: 7455,
+      sku: "7693",
+      barcode: "7693",
+      name_en: "Black Inhaler Roller 5CC",
+      name: "ยาดมแบล็คอินเฮเลอร์ ยาดมลูกกลิ้ง 5ซีซี",
+      spec_name: "",
+      is_recommend: 0,
+      is_promotion: 0,
+      is_bestseller: 1,
+      is_rx: 0
+    }],
+    product_photo: [{ photo_path: "uploads/product_photo/1772186951_1.jpg" }],
+    product_unit: [
+      { id: 10258, target_id: 7455, unit: "หลอด[5CC]", unit_num: "1.00", contain: "1.00" },
+      { id: 10259, target_id: 7455, unit: "กล่อง[6หลอด]", unit_num: "6.00", contain: "1.00" }
+    ],
+    product_price: [
+      { product_price: [{ id: 77504, price_level_id: 1, product_unit_id: 10258, price: "71.00", promotion_price: "55.00", buy_max: 0, buy_min: 0 }] },
+      { product_price: [{ id: 77512, price_level_id: 1, product_unit_id: 10259, price: "425.00", promotion_price: "325.00", buy_max: 0, buy_min: 0 }] }
+    ],
+    product_stock: [],
+    product_wishlists: 0,
+    product_related_lists: [],
+    product_hashtag: [],
+    product_hashtag_new: [],
+    customer_buyed: 234,
+    product_is_flashSale: 0,
+    product_is_recommend: 0,
+    product_flasSale: [],
+    is_rx: 0
+  },
+  {
+    product_data: [{
+      id: 7454,
+      sku: "7692",
+      barcode: "7692",
+      name_en: "SIANGPURE HERBAL LOZENGES 24X30'S",
+      name: "ยาอมสมุนไพร เซียงเพียว 24X30'S",
+      spec_name: "",
+      is_recommend: 1,
+      is_promotion: 1,
+      is_bestseller: 1,
+      is_rx: 0
+    }],
+    product_photo: [{ photo_path: "uploads/product_photo/1772186917_1.png" }],
+    product_unit: [
+      { id: 10256, target_id: 7454, unit: "กล่อง[24ซอง]", unit_num: "24.00", contain: "1.00" },
+      { id: 10257, target_id: 7454, unit: "ซอง[30เม็ด]", unit_num: "1.00", contain: "1.00" }
+    ],
+    product_price: [
+      { product_price: [{ id: 77488, price_level_id: 1, product_unit_id: 10256, price: "660.00", promotion_price: "550.00", buy_max: 0, buy_min: 0 }] },
+      { product_price: [{ id: 77496, price_level_id: 1, product_unit_id: 10257, price: "28.00", promotion_price: "24.00", buy_max: 0, buy_min: 0 }] }
+    ],
+    product_stock: [],
+    product_wishlists: 0,
+    product_related_lists: [],
+    product_hashtag: [],
+    product_hashtag_new: [],
+    customer_buyed: 567,
+    product_is_flashSale: 1,
+    product_is_recommend: 1,
+    product_flasSale: [],
+    is_rx: 0
+  },
+  {
+    product_data: [{
+      id: 7453,
+      sku: "7691",
+      barcode: "7691",
+      name_en: "TEMPRA FIZZ 500MG 12'S",
+      name: "เทมปร้า ฟิซซ์ ชนิดเม็ดฟู่ละลายน้ำ 500 มก",
+      spec_name: "PARACETAMOL",
+      is_recommend: 0,
+      is_promotion: 0,
+      is_bestseller: 0,
+      is_rx: 1
+    }],
+    product_photo: [{ photo_path: "uploads/product_photo/1772186853_1.jpg" }],
+    product_unit: [{ id: 10255, target_id: 7453, unit: "กล่อง[12เม็ด]", unit_num: "1.00", contain: "1.00" }],
+    product_price: [{ product_price: [{ id: 77480, price_level_id: 1, product_unit_id: 10255, price: "85.00", promotion_price: "0.00", buy_max: 0, buy_min: 0 }] }],
+    product_stock: [],
+    product_wishlists: 0,
+    product_related_lists: [],
+    product_hashtag: [],
+    product_hashtag_new: [],
+    customer_buyed: 12,
+    product_is_flashSale: 0,
+    product_is_recommend: 0,
+    product_flasSale: [],
+    is_rx: 1
+  },
+  {
+    product_data: [{
+      id: 7452,
+      sku: "7690",
+      barcode: "7690",
+      name_en: "SYSTANE ULTRA 10ML",
+      name: "น้ำตาเทียม ซิสเทน อัลตร้า 10มล",
+      spec_name: "POLYETHYLENE GLYCOL",
+      is_recommend: 1,
+      is_promotion: 1,
+      is_bestseller: 1,
+      is_rx: 1
+    }],
+    product_photo: [{ photo_path: "uploads/product_photo/1772186816_1.png" }],
+    product_unit: [{ id: 10254, target_id: 7452, unit: "ขวด[10ML]", unit_num: "1.00", contain: "1.00" }],
+    product_price: [{ product_price: [{ id: 77472, price_level_id: 1, product_unit_id: 10254, price: "589.00", promotion_price: "499.00", buy_max: 0, buy_min: 0 }] }],
+    product_stock: [{ productLotId: 10254, stock_num: "18.00", expiry_date: null }],
+    product_wishlists: 0,
+    product_related_lists: [],
+    product_hashtag: [],
+    product_hashtag_new: [],
+    customer_buyed: 89,
+    product_is_flashSale: 1,
+    product_is_recommend: 1,
+    product_flasSale: [],
+    is_rx: 1
+  },
+  {
+    product_data: [{
+      id: 7451,
+      sku: "7689",
+      barcode: "7689",
+      name_en: "SYSTANE COMPLETE 5ML",
+      name: "ซิสเทน คอมพลีท 5มล",
+      spec_name: "POLYETHYLENE GLYCOL 3350",
+      is_recommend: 0,
+      is_promotion: 1,
+      is_bestseller: 0,
+      is_rx: 1
+    }],
+    product_photo: [
+      { photo_path: "uploads/product_photo/1772604558_1.jpg" },
+      { photo_path: "uploads/product_photo/1772604558_2.jpeg" }
+    ],
+    product_unit: [{ id: 10253, target_id: 7451, unit: "ขวด[5ML]", unit_num: "1.00", contain: "1.00" }],
+    product_price: [{ product_price: [{ id: 77464, price_level_id: 1, product_unit_id: 10253, price: "320.00", promotion_price: "275.00", buy_max: 0, buy_min: 0 }] }],
+    product_stock: [],
+    product_wishlists: 0,
+    product_related_lists: [],
+    product_hashtag: [],
+    product_hashtag_new: [],
+    customer_buyed: 45,
+    product_is_flashSale: 1,
+    product_is_recommend: 0,
+    product_flasSale: [],
+    is_rx: 1
+  },
+  {
+    product_data: [{
+      id: 7450,
+      sku: "7688",
+      barcode: "7688",
+      name_en: "VITALUX PLUS 30'S",
+      name: "ไวตาลักซ์ พลัส 30เม็ด",
+      spec_name: "MULTIVITAMINS",
+      is_recommend: 1,
+      is_promotion: 0,
+      is_bestseller: 1,
+      is_rx: 0
+    }],
+    product_photo: [{ photo_path: "uploads/product_photo/1772186775_1.jpg" }],
+    product_unit: [{ id: 10252, target_id: 7450, unit: "ขวด[30เม็ด]", unit_num: "1.00", contain: "1.00" }],
+    product_price: [{ product_price: [{ id: 77456, price_level_id: 1, product_unit_id: 10252, price: "450.00", promotion_price: "0.00", buy_max: 0, buy_min: 0 }] }],
+    product_stock: [],
+    product_wishlists: 0,
+    product_related_lists: [],
+    product_hashtag: [],
+    product_hashtag_new: [],
+    customer_buyed: 178,
+    product_is_flashSale: 0,
+    product_is_recommend: 1,
+    product_flasSale: [],
+    is_rx: 0
+  },
+  {
+    product_data: [{
+      id: 7449,
+      sku: "7687",
+      barcode: "7687",
+      name_en: "OSTEOTIN POWDER 1500MG 30SAC",
+      name: "ออสติโอติน ชนิดผง 1500มก 30ซอง",
+      spec_name: "GLUCOSAMINE SULFATE",
+      is_recommend: 0,
+      is_promotion: 1,
+      is_bestseller: 0,
+      is_rx: 1
+    }],
+    product_photo: [{ photo_path: "uploads/product_photo/1772073401_1.jpg" }],
+    product_unit: [
+      { id: 10250, target_id: 7449, unit: "กล่อง[30ซอง]", unit_num: "30.00", contain: "1.00" },
+      { id: 10251, target_id: 7449, unit: "ซอง[3.95G]", unit_num: "1.00", contain: "1.00" }
+    ],
+    product_price: [
+      { product_price: [{ id: 77440, price_level_id: 1, product_unit_id: 10250, price: "890.00", promotion_price: "750.00", buy_max: 0, buy_min: 0 }] },
+      { product_price: [{ id: 77448, price_level_id: 1, product_unit_id: 10251, price: "32.00", promotion_price: "27.00", buy_max: 0, buy_min: 0 }] }
+    ],
+    product_stock: [],
+    product_wishlists: 0,
+    product_related_lists: [],
+    product_hashtag: [],
+    product_hashtag_new: [],
+    customer_buyed: 34,
+    product_is_flashSale: 1,
+    product_is_recommend: 0,
+    product_flasSale: [],
+    is_rx: 1
+  }
+];
