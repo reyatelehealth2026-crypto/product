@@ -15,7 +15,8 @@ import {
   Download,
   RefreshCw,
   Database,
-  Play
+  Play,
+  AlertTriangle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -102,19 +103,24 @@ export default function ProductSelector() {
   }, []);
 
   // Sync products from external API
-  const syncProducts = async (resume = false) => {
+  const syncProducts = async (resume = false, force = false) => {
+    if (force && !confirm('⚠️ นี่จะลบข้อมูลสินค้าทั้งหมดและซิงค์ใหม่! ต้องการดำเนินการต่อหรือไม่?')) {
+      return;
+    }
+    
     setSyncing(true);
     setSyncStatus(null);
     try {
       const response = await fetch('/api/sync', { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resume }),
+        body: JSON.stringify({ resume, force }),
       });
       const data = await response.json();
       
       if (data.success) {
-        setSyncStatus(`${resume ? 'Resume' : 'Sync'} ${data.status === 'partial' ? 'ยังไม่เสร็จ' : 'สำเร็จ'}: ${data.message}`);
+        const action = force ? 'Force Resync' : (resume ? 'Resume' : 'Sync');
+        setSyncStatus(`${action} ${data.status === 'partial' ? 'ยังไม่เสร็จ' : 'สำเร็จ'}: ${data.message}`);
         setCanResume(data.canResume);
         fetchProducts(); // Refresh list
       } else {
@@ -269,6 +275,17 @@ export default function ProductSelector() {
                     ซิงค์ต่อ
                   </Button>
                 )}
+                
+                <Button
+                  variant="outline"
+                  onClick={() => syncProducts(false, true)}
+                  disabled={syncing}
+                  className="whitespace-nowrap bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
+                  title="ลบข้อมูลทั้งหมดและซิงค์ใหม่"
+                >
+                  <AlertTriangle className="w-4 h-4 mr-2" />
+                  Force Resync
+                </Button>
                 
                 <Button
                   variant="outline"

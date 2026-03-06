@@ -50,11 +50,26 @@ export async function POST(request: NextRequest) {
       resume = false,           // true = resume from last position
       batchSize = 50,           // items per batch
       page = 1,                 // start page
-      updateExisting = false    // true = update even if exists
+      updateExisting = false,   // true = update even if exists
+      force = false             // true = clear all and resync
     } = body;
     
     let startPage = page;
     let lastSyncedId = 0;
+    
+    // If force mode, clear all products
+    if (force) {
+      console.log('Force resync: clearing all products...');
+      await prisma.product.deleteMany({});
+      await prisma.syncLog.create({
+        data: {
+          syncType: 'force-clear',
+          itemsCount: 0,
+          status: 'success',
+          errorMessage: 'Cleared all products for force resync',
+        },
+      });
+    }
     
     // If resume mode, find last synced product
     if (resume) {
@@ -210,7 +225,7 @@ export async function POST(request: NextRequest) {
     const status = hasMore ? 'partial' : 'success';
     await prisma.syncLog.create({
       data: {
-        syncType: resume ? 'resume' : 'full',
+        syncType: force ? 'force-resync' : (resume ? 'resume' : 'full'),
         itemsCount: totalSuccess,
         status,
         errorMessage: status === 'partial' 
