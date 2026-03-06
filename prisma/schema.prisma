@@ -1,0 +1,86 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model Product {
+  id                Int       @id @default(autoincrement())
+  productId         Int       @unique @map("product_id")
+  sku               String    @unique
+  barcode           String?
+  name              String
+  nameEn            String?   @map("name_en")
+  specName          String?   @map("spec_name")
+  basePrice         Decimal   @map("base_price") @db.Decimal(10, 2)
+  salePrice         Decimal?  @map("sale_price") @db.Decimal(10, 2)
+  promotionPrice    Decimal?  @map("promotion_price") @db.Decimal(10, 2)
+  stockQuantity     Int       @default(0) @map("stock_quantity")
+  stockUnit         String?   @map("stock_unit")
+  
+  // Status flags
+  isRx              Boolean   @default(false) @map("is_rx")
+  isPromotion       Boolean   @default(false) @map("is_promotion")
+  isFlashsale       Boolean   @default(false) @map("is_flashsale")
+  isBestseller      Boolean   @default(false) @map("is_bestseller")
+  isRecommend       Boolean   @default(false) @map("is_recommend")
+  isActive          Boolean   @default(true) @map("is_active")
+  
+  // JSON fields
+  images            Json?
+  hashtags          Json?
+  units             Json?
+  relatedProducts   Json?     @map("related_products")
+  
+  // Relations
+  promotions        Promotion[]
+  
+  // Timestamps
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  
+  @@map("products")
+}
+
+model Promotion {
+  id              Int       @id @default(autoincrement())
+  productId       Int       @map("product_id")
+  type            String    // 'flashsale', 'percent_off', 'bundle', 'buy_x_get_y'
+  
+  // Display
+  badgeText       String?   @map("badge_text")
+  badgeColor      String?   @map("badge_color")
+  
+  // Pricing Rules
+  discountPercent Int?      @map("discount_percent")
+  discountAmount  Decimal?  @map("discount_amount") @db.Decimal(10, 2)
+  minQuantity     Int       @default(1) @map("min_quantity")
+  
+  // Bundle Rules (JSON)
+  bundleRules     Json?     @map("bundle_rules")
+  
+  // Duration
+  startDate       DateTime? @map("start_date")
+  endDate         DateTime? @map("end_date")
+  
+  // Status
+  isActive        Boolean   @default(true) @map("is_active")
+  
+  // Relations
+  product         Product   @relation(fields: [productId], references: [productId], onDelete: Cascade)
+  
+  @@map("promotions")
+}
+
+model SyncLog {
+  id            Int      @id @default(autoincrement())
+  syncType      String   @map("sync_type")
+  itemsCount    Int      @map("items_count")
+  status        String
+  errorMessage  String?  @map("error_message")
+  createdAt     DateTime @default(now()) @map("created_at")
+  
+  @@map("sync_logs")
+}
