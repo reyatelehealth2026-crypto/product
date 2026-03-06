@@ -1,56 +1,95 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
+import { Prisma } from '@prisma/client';
 
-/**
- * Proxy API for fetching product data from CNY Pharmacy
- * GET /api/products?url=<encoded_api_url>
- */
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const apiUrl = searchParams.get('url');
-
-  if (!apiUrl) {
-    return NextResponse.json(
-      { error: 'กรุณาระบุ URL' },
-      { status: 400 }
-    );
-  }
-
-  // Validate URL is from cnypharmacy.com
-  if (!apiUrl.includes('cnypharmacy.com')) {
-    return NextResponse.json(
-      { error: 'URL ต้องมาจาก cnypharmacy.com เท่านั้น' },
-      { status: 403 }
-    );
-  }
-
   try {
-    const response = await fetch(apiUrl, {
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      },
-      cache: 'no-store',
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    const { searchParams } = new URL(request.url);
+    
+    // Query params
+    const search = searchParams.get('search') || '';
+    const filter = searchParams.get('filter') || 'all';
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '24');
+    const sortBy = searchParams.get('sortBy') || 'name';
+    const sortOrder = searchParams.get('sortOrder') || 'asc';
+    
+    // Build where clause
+    const where: Prisma.ProductWhereInput = {
+      isActive: true,
+    };
+    
+    // Search
+    if (search) {
+      where.OR = [
+        { name: { contains: search } },
+        { nameEn: { contains: search } },
+        { sku: { contains: search } },
+        { barcode: { contains: search } },
+      ];
     }
-
-    const data = await response.json();
+    
+    // Filter
+    switch (filter) {
+      case 'flashsale':
+        where.isFlashsale = true;
+        break;
+      case 'promotion':
+        where.isPromotion = true;
+        break;
+      case 'new':
+        where.isRecommend = true;
+        break;
+      case 'bestseller':
+        where.isBestseller = true;
+        break;
+      case 'rx':
+        where.isRx = true;
+        break;
+    }
+    
+    // Build orderBy
+    const orderBy: Prisma.ProductOrderByWithRelationInput = {};
+    if (sortBy === 'price') {
+      orderBy.basePrice = sortOrder as Prisma.SortOrder;
+    } else if (sortBy === 'stock') {
+      orderBy.stockQuantity = sortOrder as Prisma.SortOrder;
+    } else {
+      orderBy.name = sortOrder as Prisma.SortOrder;
+    }
+    
+    // Query with pagination
+    const skip = (page - 1) * limit;
+    
+    const [products, total] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        include: {
+          promotions: {
+            where: { isActive: true },
+          },
+        },
+        orderBy,
+        skip,
+        take: limit,
+      }),
+      prisma.product.count({ where }),
+    ]);
     
     return NextResponse.json({
-      success: true,
-      data,
-      timestamp: new Date().toISOString(),
-    });
-
-  } catch (error) {
-    console.error('Error fetching products:', error);
-    return NextResponse.json(
-      { 
-        error: 'ไม่สามารถดึงข้อมูลได้',
-        details: (error as Error).message 
+      products,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
       },
+    });
+    
+  } catch (error) {
+    console.error('Products API error:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch products' },
       { status: 500 }
     );
   }
