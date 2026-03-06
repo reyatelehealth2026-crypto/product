@@ -14,7 +14,8 @@ import {
   Copy,
   Download,
   RefreshCw,
-  Database
+  Database,
+  Play
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,6 +51,8 @@ export default function ProductSelector() {
   const [copied, setCopied] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
+  const [canResume, setCanResume] = useState(false);
+  const [syncStats, setSyncStats] = useState<{totalProducts: number; lastSync: any} | null>(null);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 24,
@@ -80,16 +83,39 @@ export default function ProductSelector() {
     }
   }, [searchQuery, activeFilter, pagination.page, pagination.limit]);
 
+  // Check sync status on mount
+  useEffect(() => {
+    const checkSyncStatus = async () => {
+      try {
+        const response = await fetch('/api/sync');
+        const data = await response.json();
+        setCanResume(data.canResume);
+        setSyncStats({
+          totalProducts: data.totalProducts,
+          lastSync: data.lastSync,
+        });
+      } catch (error) {
+        console.error('Failed to check sync status:', error);
+      }
+    };
+    checkSyncStatus();
+  }, []);
+
   // Sync products from external API
-  const syncProducts = async () => {
+  const syncProducts = async (resume = false) => {
     setSyncing(true);
     setSyncStatus(null);
     try {
-      const response = await fetch('/api/sync', { method: 'POST' });
+      const response = await fetch('/api/sync', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resume }),
+      });
       const data = await response.json();
       
       if (data.success) {
-        setSyncStatus(`Sync สำเร็จ: ${data.message}`);
+        setSyncStatus(`${resume ? 'Resume' : 'Sync'} ${data.status === 'partial' ? 'ยังไม่เสร็จ' : 'สำเร็จ'}: ${data.message}`);
+        setCanResume(data.canResume);
         fetchProducts(); // Refresh list
       } else {
         setSyncStatus(`Sync ล้มเหลว: ${data.error}`);
@@ -224,13 +250,25 @@ export default function ProductSelector() {
               <div className="flex gap-2">
                 <Button
                   variant="outline"
-                  onClick={syncProducts}
+                  onClick={() => syncProducts(false)}
                   disabled={syncing}
                   className="whitespace-nowrap"
                 >
                   <RefreshCw className={cn("w-4 h-4 mr-2", syncing && "animate-spin")} />
                   {syncing ? 'กำลัง Sync...' : 'Sync ข้อมูล'}
                 </Button>
+                
+                {canResume && (
+                  <Button
+                    variant="outline"
+                    onClick={() => syncProducts(true)}
+                    disabled={syncing}
+                    className="whitespace-nowrap bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100"
+                  >
+                    <Play className="w-4 h-4 mr-2" />
+                    ซิงค์ต่อ
+                  </Button>
+                )}
                 
                 <Button
                   variant="outline"
@@ -283,6 +321,11 @@ export default function ProductSelector() {
             <span className="text-sm text-gray-600">
               พบ <span className="font-semibold text-gray-900">{pagination.total}</span> รายการ
             </span>
+            {syncStats && (
+              <span className="text-xs text-gray-400">
+                (ในฐานข้อมูล: {syncStats.totalProducts} รายการ)
+              </span>
+            )}
             {selectedCount > 0 && (
               <span className="ml-2 text-green-600">
                 | เลือกแล้ว <span className="font-semibold">{selectedCount}</span> รายการ

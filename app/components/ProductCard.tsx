@@ -73,7 +73,7 @@ export default function ProductCard({ product, selected, onToggle }: ProductCard
       <div className="aspect-square bg-gray-100 relative overflow-hidden">
         {images[0]?.photo_path ? (
           <img
-            src={`https://www.cnypharmacy.com/${images[0].photo_path}`}
+            src={`/api/image?path=${encodeURIComponent(images[0].photo_path)}`}
             alt={product.name}
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
             loading="lazy"
