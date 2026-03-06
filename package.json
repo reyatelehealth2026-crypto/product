@@ -17,8 +17,12 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.477.0",
+<<<<<<< HEAD
     "next": "16.1.6",
     "radix-ui": "^1.4.3",
+=======
+    "next": "15.2.0",
+>>>>>>> 8ad630cf35d1820ec953d17b8b7c9412d75d4056
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "shadcn": "^3.8.5",
