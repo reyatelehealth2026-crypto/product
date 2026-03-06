@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Search, 
   Package,
@@ -13,323 +13,188 @@ import {
   Share2,
   Copy,
   Download,
-  Upload,
-  FileJson,
-  AlertCircle,
-  Loader2
+  RefreshCw,
+  Database
 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { TooltipProvider } from '@/components/ui/tooltip';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
-import type { Product, SelectedProduct, FlashSaleProduct, FlashSaleResponse, BroadcastCategory } from '@/types/product';
-import { productToBroadcastItem, flashSaleToBroadcastItem, generateBroadcastCarousel } from '@/types/product';
-import { SAMPLE_PRODUCTS } from './sample-data';
+import ProductCard from './components/ProductCard';
+import type { Product, Promotion } from '@prisma/client';
 
-interface ProductSelectorProps {
-  initialProducts?: Product[];
+type FilterType = 'all' | 'flashsale' | 'promotion' | 'new' | 'bestseller' | 'rx';
+
+interface ProductWithPromotions extends Product {
+  promotions: Promotion[];
 }
 
-type FilterType = 'all' | 'flashsale' | 'promotion' | 'new' | 'bestseller';
-type DataSource = 'default' | 'upload';
-
-const FILTERS: { key: FilterType; label: string; icon: React.ElementType; color: string; bgColor: string }[] = [
-  { key: 'all', label: 'ทั้งหมด', icon: Package, color: 'text-gray-700', bgColor: 'bg-gray-100' },
-  { key: 'flashsale', label: 'Flash Sale', icon: Zap, color: 'text-red-600', bgColor: 'bg-red-50' },
-  { key: 'promotion', label: 'โปรโมชั่น', icon: Tag, color: 'text-orange-600', bgColor: 'bg-orange-50' },
-  { key: 'new', label: 'สินค้าใหม่', icon: Sparkles, color: 'text-purple-600', bgColor: 'bg-purple-50' },
-  { key: 'bestseller', label: 'ขายดี', icon: TrendingUp, color: 'text-green-600', bgColor: 'bg-green-50' },
+const FILTERS: { key: FilterType; label: string; icon: React.ElementType; color: string }[] = [
+  { key: 'all', label: 'ทั้งหมด', icon: Package, color: 'text-gray-700' },
+  { key: 'flashsale', label: 'Flash Sale', icon: Zap, color: 'text-red-600' },
+  { key: 'promotion', label: 'โปรโมชั่น', icon: Tag, color: 'text-orange-600' },
+  { key: 'new', label: 'สินค้าใหม่', icon: Sparkles, color: 'text-purple-600' },
+  { key: 'bestseller', label: 'ขายดี', icon: TrendingUp, color: 'text-green-600' },
+  { key: 'rx', label: 'ยาตามใบสั่ง', icon: Package, color: 'text-red-600' },
 ];
 
-export default function ProductSelector({ initialProducts = SAMPLE_PRODUCTS }: ProductSelectorProps) {
-  const [products, setProducts] = useState<Product[]>(initialProducts);
-  const [dataSource, setDataSource] = useState<DataSource>('default');
+export default function ProductSelector() {
+  const [products, setProducts] = useState<ProductWithPromotions[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
-  const [selectedItems, setSelectedItems] = useState<Map<number, SelectedProduct>>(new Map());
+  const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
   const [showFlexDialog, setShowFlexDialog] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [bubbleCount, setBubbleCount] = useState(6);
-  const [flashSaleLoading, setFlashSaleLoading] = useState(false);
-  const [flashSaleProducts, setFlashSaleProducts] = useState<FlashSaleProduct[]>([]);
-  const [flashSaleMenuName, setFlashSaleMenuName] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [apiLoading, setApiLoading] = useState(false);
-  const [apiProgress, setApiProgress] = useState({ loaded: 0, total: 0 });
-  const [apiError, setApiError] = useState<string | null>(null);
-  const apiFetchedRef = useRef(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 24,
+    total: 0,
+    totalPages: 1,
+  });
 
-  // Progressive API fetch on mount
-  useEffect(() => {
-    if (apiFetchedRef.current) return;
-    apiFetchedRef.current = true;
-
-    const API_BASE = 'https://www.cnypharmacy.com/api/getDataProductIsGroup';
-    const BATCH_SIZE = 3;
-    const DELAY_MS = 600;
-    const MAX_RETRIES = 3;
-
-    const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-    async function fetchPage(page: number, retries = 0): Promise<{ products: Product[]; lastPage: number; total: number }> {
-      const res = await fetch(`/api/products?url=${encodeURIComponent(`${API_BASE}?page=${page}`)}`);
-      if (res.status === 429 || res.status === 500) {
-        if (retries < MAX_RETRIES) {
-          await delay(1000 * (retries + 1));
-          return fetchPage(page, retries + 1);
-        }
-      }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error || 'Failed');
-      return {
-        products: Array.isArray(json.data?.product) ? json.data.product as Product[] : [],
-        lastPage: Number(json.data?.paginate?.last_page || 1),
-        total: Number(json.data?.paginate?.total || 0),
-      };
-    }
-
-    async function loadAll() {
-      setApiLoading(true);
-      setApiError(null);
-      try {
-        const first = await fetchPage(1);
-        const allProducts = [...first.products];
-        const lastPage = first.lastPage;
-        setApiProgress({ loaded: 1, total: lastPage });
-        setProducts(allProducts);
-
-        if (lastPage <= 1) {
-          setApiLoading(false);
-          return;
-        }
-
-        const pages = Array.from({ length: lastPage - 1 }, (_, i) => i + 2);
-
-        for (let i = 0; i < pages.length; i += BATCH_SIZE) {
-          const batch = pages.slice(i, i + BATCH_SIZE);
-          const results = await Promise.all(
-            batch.map((p) => fetchPage(p).catch(() => ({ products: [] as Product[], lastPage: 0, total: 0 })))
-          );
-          for (const r of results) {
-            allProducts.push(...r.products);
-          }
-          setApiProgress({ loaded: Math.min(i + BATCH_SIZE + 1, lastPage), total: lastPage });
-          setProducts([...allProducts]);
-          if (i + BATCH_SIZE < pages.length) await delay(DELAY_MS);
-        }
-      } catch (err) {
-        setApiError(`โหลดสินค้าจาก API ไม่สำเร็จ: ${(err as Error).message}`);
-      } finally {
-        setApiLoading(false);
-      }
-    }
-
-    loadAll();
-  }, []);
-
-  const filteredProducts = useMemo(() => {
-    return products.filter(product => {
-      const data = product.product_data[0];
-      if (!data) return false;
-
-      const searchLower = searchQuery.toLowerCase();
-      const matchesSearch = !searchQuery || 
-        data.name.toLowerCase().includes(searchLower) ||
-        data.name_en.toLowerCase().includes(searchLower) ||
-        data.sku.toLowerCase().includes(searchLower) ||
-        data.barcode.toLowerCase().includes(searchLower);
-
-      let matchesFilter = true;
-      switch (activeFilter) {
-        case 'promotion':
-          matchesFilter = data.is_promotion === 1;
-          break;
-        case 'new':
-          matchesFilter = product.product_is_recommend === 1 || product.product_is_flashSale === 1;
-          break;
-        case 'bestseller':
-          matchesFilter = data.is_bestseller === 1 || product.customer_buyed > 0;
-          break;
-      }
-
-      return matchesSearch && matchesFilter;
-    });
-  }, [products, searchQuery, activeFilter]);
-
-  const filteredFlashSaleProducts = useMemo(() => {
-    return flashSaleProducts.filter((item) => {
-      const searchLower = searchQuery.toLowerCase();
-
-      return !searchQuery ||
-        item.name.toLowerCase().includes(searchLower) ||
-        item.name_en.toLowerCase().includes(searchLower) ||
-        item.sku.toLowerCase().includes(searchLower) ||
-        item.barcode.toLowerCase().includes(searchLower);
-    });
-  }, [flashSaleProducts, searchQuery]);
-
-  const showingFlashSaleView = activeFilter === 'flashsale' && flashSaleProducts.length > 0;
-  const visibleCount = showingFlashSaleView ? filteredFlashSaleProducts.length : filteredProducts.length;
-  const currentSourceBadge = showingFlashSaleView ? 'flashsale' : dataSource;
-
-  // Handle file upload
-  const handleFileUpload = useCallback(async (file: File) => {
-    setUploadError(null);
-    
-    if (!file.name.endsWith('.json')) {
-      setUploadError('กรุณาอัปโหลดไฟล์ .json เท่านั้น');
-      return;
-    }
-
+  // Fetch products from API
+  const fetchProducts = useCallback(async () => {
+    setLoading(true);
     try {
-      const text = await file.text();
-      const data = JSON.parse(text);
+      const params = new URLSearchParams({
+        search: searchQuery,
+        filter: activeFilter,
+        page: pagination.page.toString(),
+        limit: pagination.limit.toString(),
+      });
       
-      let productArray: Product[] = [];
+      const response = await fetch(`/api/products?${params}`);
+      const data = await response.json();
       
-      // Handle different JSON structures
-      if (data.product && Array.isArray(data.product)) {
-        productArray = data.product;
-      } else if (Array.isArray(data)) {
-        productArray = data;
-      } else {
-        throw new Error('รูปแบบ JSON ไม่ถูกต้อง: ต้องการ property "product" ที่เป็น array หรือ array โดยตรง');
-      }
-
-      if (productArray.length === 0) {
-        throw new Error('ไม่พบข้อมูลสินค้าในไฟล์');
-      }
-
-      setProducts(productArray);
-      setDataSource('upload');
-      setSelectedItems(new Map()); // Clear selections
-      
-    } catch (err) {
-      setUploadError((err as Error).message);
-    }
-  }, []);
-
-  // Handle drag and drop
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-      handleFileUpload(files[0]);
-    }
-  }, [handleFileUpload]);
-
-  // Handle file input change
-  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      handleFileUpload(file);
-    }
-  }, [handleFileUpload]);
-
-  const resetToDefaultData = useCallback(() => {
-    setProducts(initialProducts.length > 0 ? initialProducts : SAMPLE_PRODUCTS);
-    setDataSource('default');
-    setUploadError(null);
-    setSelectedItems(new Map());
-    setFlashSaleProducts([]);
-    setFlashSaleMenuName('');
-    setActiveFilter('all');
-  }, [initialProducts]);
-
-  // Fetch Flash Sale from API
-  const fetchFlashSale = useCallback(async () => {
-    setFlashSaleLoading(true);
-    setUploadError(null);
-    try {
-      const res = await fetch('/api/flashsale?id=116');
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error || 'Failed to fetch');
-
-      const data: FlashSaleResponse = json.data;
-      const allProducts = data.flashsale.flat();
-      setFlashSaleProducts(allProducts);
-      setFlashSaleMenuName(data.flasSale_menu?.[0]?.name || 'Flash Sale');
-      setActiveFilter('flashsale');
-      setSelectedItems(new Map());
-    } catch (err) {
-      setUploadError(`ไม่สามารถดึงข้อมูล Flash Sale ได้: ${(err as Error).message}`);
+      setProducts(data.products);
+      setPagination(data.pagination);
+    } catch (error) {
+      console.error('Failed to fetch products:', error);
     } finally {
-      setFlashSaleLoading(false);
+      setLoading(false);
     }
-  }, []);
+  }, [searchQuery, activeFilter, pagination.page, pagination.limit]);
+
+  // Sync products from external API
+  const syncProducts = async () => {
+    setSyncing(true);
+    setSyncStatus(null);
+    try {
+      const response = await fetch('/api/sync', { method: 'POST' });
+      const data = await response.json();
+      
+      if (data.success) {
+        setSyncStatus(`Sync สำเร็จ: ${data.message}`);
+        fetchProducts(); // Refresh list
+      } else {
+        setSyncStatus(`Sync ล้มเหลว: ${data.error}`);
+      }
+    } catch (error) {
+      setSyncStatus('Sync ล้มเหลว: Network error');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
 
   // Toggle selection
-  const toggleSelection = useCallback((product: Product) => {
-    const data = product.product_data[0];
-    const newSelected = new Map(selectedItems);
-    
-    if (newSelected.has(data.id)) {
-      newSelected.delete(data.id);
-    } else {
-      newSelected.set(data.id, {
-        product,
-        quantity: 1,
-        selectedUnit: product.product_unit[0] || null
-      });
-    }
-    setSelectedItems(newSelected);
-  }, [selectedItems]);
-
-  // Clear selections
-  const clearSelections = useCallback(() => {
-    setSelectedItems(new Map());
+  const toggleSelection = useCallback((productId: number) => {
+    setSelectedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(productId)) {
+        newSet.delete(productId);
+      } else {
+        newSet.add(productId);
+      }
+      return newSet;
+    });
   }, []);
 
-  // Generate Flex Message JSON
-  const flexMessageJson = useMemo(() => {
-    // If flash sale products exist and filter is flashsale, use them
-    if (flashSaleProducts.length > 0 && activeFilter === 'flashsale') {
-      const broadcastItems = flashSaleProducts.map(flashSaleToBroadcastItem);
-      return JSON.stringify(generateBroadcastCarousel(broadcastItems, 'flashsale', bubbleCount), null, 2);
-    }
+  const clearSelections = useCallback(() => {
+    setSelectedItems(new Set());
+  }, []);
 
-    // Otherwise use selected products
-    const items = Array.from(selectedItems.values());
-    if (items.length === 0) return '{}';
+  // Generate Flex Message
+  const generateFlexMessage = () => {
+    const selectedProducts = products.filter(p => selectedItems.has(p.productId));
+    
+    const bubbles = selectedProducts.map(product => {
+      const images = (product.images as Array<{ photo_path: string }>) || [];
+      const displayPrice = product.promotionPrice || product.salePrice || product.basePrice;
+      
+      return {
+        type: 'bubble',
+        hero: images[0]?.photo_path ? {
+          type: 'image',
+          url: `https://www.cnypharmacy.com/${images[0].photo_path}`,
+          size: 'full',
+          aspectRatio: '1:1',
+        } : undefined,
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'text',
+              text: product.name,
+              weight: 'bold',
+              size: 'md',
+              wrap: true,
+            },
+            {
+              type: 'text',
+              text: `รหัส: ${product.sku}`,
+              size: 'xs',
+              color: '#888888',
+              margin: 'sm',
+            },
+            {
+              type: 'box',
+              layout: 'horizontal',
+              margin: 'md',
+              contents: [
+                {
+                  type: 'text',
+                  text: `฿${Number(displayPrice).toLocaleString()}`,
+                  weight: 'bold',
+                  size: 'lg',
+                  color: '#FF6B6B',
+                },
+              ],
+            },
+          ],
+        },
+      };
+    });
 
-    const broadcastItems = items.map(item => productToBroadcastItem(item.product));
-    const category = (activeFilter === 'all' ? 'all' : activeFilter) as BroadcastCategory;
-    return JSON.stringify(generateBroadcastCarousel(broadcastItems, category, bubbleCount), null, 2);
-  }, [selectedItems, activeFilter, bubbleCount, flashSaleProducts]);
+    return {
+      type: 'carousel',
+      contents: bubbles,
+    };
+  };
 
-  // Copy to clipboard
+  const flexMessageJson = JSON.stringify(generateFlexMessage(), null, 2);
+
   const copyToClipboard = async () => {
     await navigator.clipboard.writeText(flexMessageJson);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Download JSON
   const downloadJSON = () => {
     const blob = new Blob([flexMessageJson], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `flex-message-${activeFilter}-${Date.now()}.json`;
+    a.download = `flex-message-${Date.now()}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -337,664 +202,259 @@ export default function ProductSelector({ initialProducts = SAMPLE_PRODUCTS }: P
   };
 
   const selectedCount = selectedItems.size;
-  const isSelected = (productId: number) => selectedItems.has(productId);
-
-  // Calculate sold percentage for progress bar
-  const getSoldPercent = (stock: string) => {
-    const num = parseFloat(stock);
-    if (isNaN(num) || num <= 0) return 100;
-    if (num > 50) return 20;
-    if (num > 20) return 50;
-    if (num > 10) return 75;
-    return 90;
-  };
 
   return (
-    <TooltipProvider>
-      <div className="min-h-screen bg-gray-50">
-        {/* Sticky Header */}
-        <div className="sticky top-0 z-40 bg-white border-b shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 py-3">
-            <div className="flex flex-col gap-3">
-              {/* Top Row: Search + Upload */}
-              <div className="flex flex-col md:flex-row md:items-center gap-3">
-                {/* Search */}
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <Input
-                    placeholder="🔍 ค้นหาสินค้า (ชื่อ, SKU, Barcode...)"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 border-gray-200 focus:border-green-500 focus:ring-green-500"
-                  />
-                </div>
-
-                {/* Upload Button */}
-                <input
-                  type="file"
-                  accept=".json"
-                  ref={fileInputRef}
-                  onChange={handleFileInputChange}
-                  className="hidden"
+    <div className="min-h-screen bg-gray-50">
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-40 bg-white border-b shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 py-3">
+          <div className="flex flex-col gap-3">
+            {/* Top Row: Search + Actions */}
+            <div className="flex flex-col md:flex-row md:items-center gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  placeholder="🔍 ค้นหาสินค้า (ชื่อ, SKU, Barcode...)"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 border-gray-200 focus:border-green-500 focus:ring-green-500"
                 />
+              </div>
+              
+              <div className="flex gap-2">
                 <Button
                   variant="outline"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={syncProducts}
+                  disabled={syncing}
                   className="whitespace-nowrap"
                 >
-                  <Upload className="w-4 h-4 mr-2" />
-                  อัปโหลด JSON
+                  <RefreshCw className={cn("w-4 h-4 mr-2", syncing && "animate-spin")} />
+                  {syncing ? 'กำลัง Sync...' : 'Sync ข้อมูล'}
                 </Button>
-
-                {dataSource !== 'default' && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={resetToDefaultData}
-                    className="text-gray-500"
-                  >
-                    กลับไปใช้ JSON หลัก
-                  </Button>
-                )}
-              </div>
-
-              {/* API Buttons Row */}
-              <div className="flex flex-wrap items-center gap-2">
+                
                 <Button
                   variant="outline"
-                  size="sm"
-                  onClick={fetchFlashSale}
-                  disabled={flashSaleLoading}
-                  className="bg-yellow-50 border-yellow-300 text-yellow-800 hover:bg-yellow-100"
+                  onClick={fetchProducts}
+                  className="whitespace-nowrap"
                 >
-                  {flashSaleLoading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Zap className="w-4 h-4 mr-1" />}
-                  ดึง Flash Sale
+                  <Database className="w-4 h-4 mr-2" />
+                  โหลดจาก DB
                 </Button>
-
-                <div className="flex items-center gap-1.5 ml-auto">
-                  <span className="text-xs text-gray-500">Bubble:</span>
-                  <select
-                    value={bubbleCount}
-                    onChange={(e) => setBubbleCount(Number(e.target.value))}
-                    className="text-sm border border-gray-300 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-green-500"
-                  >
-                    {[1, 2, 3, 4, 5, 6, 7].map(n => (
-                      <option key={n} value={n}>{n} ({n * 9} สินค้า)</option>
-                    ))}
-                  </select>
-                </div>
-
-                {flashSaleProducts.length > 0 && (
-                  <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full font-medium">
-                    ⚡ {flashSaleMenuName} ({flashSaleProducts.length} รายการ)
-                  </span>
-                )}
               </div>
+            </div>
 
-              {/* Filter Pills */}
-              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-                {FILTERS.map(({ key, label, icon: Icon, color, bgColor }) => (
-                  <button
-                    key={key}
-                    onClick={() => setActiveFilter(key)}
-                    className={cn(
-                      "flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all",
-                      activeFilter === key
-                        ? cn(color, bgColor, "ring-2 ring-offset-1 ring-current")
-                        : "text-gray-600 hover:bg-gray-100"
-                    )}
-                  >
-                    <Icon className="w-4 h-4" />
-                    {label}
-                  </button>
-                ))}
-              </div>
+            {/* Filter Pills */}
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+              {FILTERS.map(({ key, label, icon: Icon, color }) => (
+                <button
+                  key={key}
+                  onClick={() => setActiveFilter(key)}
+                  className={cn(
+                    "flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all",
+                    activeFilter === key
+                      ? cn(color, "bg-gray-100 ring-2 ring-offset-1 ring-current")
+                      : "text-gray-600 hover:bg-gray-100"
+                  )}
+                >
+                  <Icon className="w-4 h-4" />
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Main Content */}
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          {/* Upload Area (Drag & Drop) */}
-          <div
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            className={cn(
-              "mb-4 p-6 border-2 border-dashed rounded-lg text-center transition-colors cursor-pointer",
-              isDragging
-                ? "border-green-500 bg-green-50"
-                : "border-gray-300 bg-gray-50 hover:border-gray-400"
-            )}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <div className="flex flex-col items-center gap-2">
-              <div className={cn(
-                "w-12 h-12 rounded-full flex items-center justify-center transition-colors",
-                isDragging ? "bg-green-100 text-green-600" : "bg-gray-100 text-gray-400"
-              )}>
-                <FileJson className="w-6 h-6" />
-              </div>
-              <p className="text-sm text-gray-600">
-                <span className="font-medium">ลากไฟล์ JSON มาวางที่นี่</span> หรือคลิกเพื่อเลือกไฟล์
-              </p>
-              <p className="text-xs text-gray-400">รองรับไฟล์ .json ที่มี property "product" หรือ array โดยตรง</p>
-            </div>
-          </div>
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 py-4">
+        {/* Sync Status */}
+        {syncStatus && (
+          <Alert className={cn(
+            "mb-4",
+            syncStatus.includes('สำเร็จ') ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"
+          )}>
+            <AlertDescription>{syncStatus}</AlertDescription>
+          </Alert>
+        )}
 
-          {/* Error Message */}
-          {uploadError && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertCircle className="w-4 h-4" />
-              <AlertDescription>{uploadError}</AlertDescription>
-            </Alert>
-          )}
-
-          {/* API Loading Progress */}
-          {apiLoading && (
-            <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
-                  <span className="text-sm font-medium text-blue-800">กำลังโหลดสินค้าทั้งหมดจาก API...</span>
-                </div>
-                <span className="text-xs text-blue-600">
-                  {apiProgress.loaded}/{apiProgress.total} หน้า
-                </span>
-              </div>
-              <div className="h-2 bg-blue-200 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-blue-600 rounded-full transition-all duration-300"
-                  style={{ width: `${apiProgress.total > 0 ? (apiProgress.loaded / apiProgress.total) * 100 : 0}%` }}
-                />
-              </div>
-              <p className="text-[11px] text-blue-500 mt-1">โหลดแล้ว {products.length.toLocaleString()} รายการ</p>
-            </div>
-          )}
-
-          {apiError && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertCircle className="w-4 h-4" />
-              <AlertDescription>{apiError}</AlertDescription>
-            </Alert>
-          )}
-
-          {/* Data Source Badge */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">พบ <span className="font-semibold text-gray-900">{visibleCount}</span> รายการ</span>
-              
-              {currentSourceBadge === 'default' && (
-                <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full">JSON หลัก</span>
-              )}
-              {currentSourceBadge === 'upload' && (
-                <span className="px-2 py-0.5 bg-green-100 text-green-600 text-xs rounded-full">อัปโหลด</span>
-              )}
-              {currentSourceBadge === 'flashsale' && (
-                <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full">Flash Sale API</span>
-              )}
-              
-              {selectedCount > 0 && (
-                <span className="ml-2 text-green-600">
-                  | เลือกแล้ว <span className="font-semibold">{selectedCount}</span> รายการ
-                </span>
-              )}
-            </div>
-            
+        {/* Stats Bar */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600">
+              พบ <span className="font-semibold text-gray-900">{pagination.total}</span> รายการ
+            </span>
             {selectedCount > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearSelections}
-                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-              >
-                <X className="w-4 h-4 mr-1" />
-                ล้างการเลือก
-              </Button>
+              <span className="ml-2 text-green-600">
+                | เลือกแล้ว <span className="font-semibold">{selectedCount}</span> รายการ
+              </span>
             )}
           </div>
-
-          {/* Products Grid */}
-          {showingFlashSaleView ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-              {filteredFlashSaleProducts.map((item, index) => {
-                const soldPercent = item.flasSale?.[0]?.quota
-                  ? Math.round(((item.flasSale?.[0]?.usage || 0) / item.flasSale[0].quota) * 100)
-                  : 0;
-
-                return (
-                  <Card
-                    key={`${item.sku}-${index}`}
-                    className="group relative overflow-hidden border-gray-200 hover:border-green-300 transition-all duration-200 hover:shadow-lg hover:-translate-y-1"
-                  >
-                    <div className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded text-xs font-bold bg-red-500 text-white">
-                      FlashSale
-                    </div>
-
-                    <div className="aspect-square bg-gray-100 relative overflow-hidden">
-                      <img
-                        src={`https://manager.cnypharmacy.com/${item.photo_path}`}
-                        alt={item.name}
-                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                        loading="lazy"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = 'none';
-                        }}
-                      />
-                      <div className="w-full h-full flex items-center justify-center bg-gray-100 absolute inset-0 -z-10">
-                        <Package className="w-10 h-10 text-gray-300" />
-                      </div>
-                    </div>
-
-                    <CardContent className="p-2.5 space-y-1.5">
-                      <h3 className="font-medium text-xs text-gray-900 line-clamp-2 min-h-[2rem] leading-tight">
-                        {item.name}
-                      </h3>
-
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="text-sm font-bold text-red-600">
-                          ฿{parseFloat(item.dark_price).toLocaleString()}
-                        </span>
-                        {parseFloat(item.dark_price) < parseFloat(item.red_price) && (
-                          <span className="text-[10px] text-gray-400 line-through">
-                            ฿{parseFloat(item.red_price).toLocaleString()}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="space-y-1">
-                        <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-orange-400 to-red-500 rounded-full transition-all"
-                            style={{ width: `${Math.min(soldPercent, 100)}%` }}
-                          />
-                        </div>
-                        <p className="text-[10px] text-gray-500">
-                          ขายแล้ว {Math.min(soldPercent, 100)}%
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          ) : activeFilter === 'flashsale' ? (
-            <div className="text-center py-16">
-              <div className="w-20 h-20 mx-auto bg-yellow-50 rounded-full flex items-center justify-center mb-4">
-                <Zap className="w-10 h-10 text-yellow-500" />
-              </div>
-              <h3 className="text-lg font-medium text-gray-900">ยังไม่ได้ดึง Flash Sale</h3>
-              <p className="text-sm text-gray-500 mt-1">
-                กดปุ่ม <span className="font-medium text-yellow-700">ดึง Flash Sale</span> เพื่อโหลดสินค้าหมวดนี้
-              </p>
-              <Button
-                variant="outline"
-                className="mt-4 bg-yellow-50 border-yellow-300 text-yellow-800 hover:bg-yellow-100"
-                onClick={fetchFlashSale}
-                disabled={flashSaleLoading}
-              >
-                {flashSaleLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
-                ดึง Flash Sale
-              </Button>
-            </div>
-          ) : filteredProducts.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {filteredProducts.map((product, productIndex) => {
-                const data = product.product_data[0];
-                const photo = product.product_photo[0];
-                const selected = isSelected(data.id);
-
-                // Determine badge
-                const firstPrice = product.product_price[0]?.product_price[0];
-                const dp = firstPrice?.promotion_price !== '0.00' ? parseFloat(firstPrice?.promotion_price || '0') : parseFloat(firstPrice?.price || '0');
-                const op = parseFloat(firstPrice?.price || '0');
-                const hasAnyDiscount = dp < op && op > 0;
-
-                let badge = null;
-                if (product.product_is_flashSale === 1 || (hasAnyDiscount && dp > 0)) {
-                  badge = { text: 'FlashSale', color: 'bg-red-500', textColor: 'text-white' };
-                } else if (data.is_promotion === 1) {
-                  badge = { text: 'โปรโมชั่น', color: 'bg-orange-500', textColor: 'text-white' };
-                } else if (data.is_bestseller === 1) {
-                  badge = { text: 'ขายดี', color: 'bg-green-500', textColor: 'text-white' };
-                } else if (product.product_is_recommend === 1) {
-                  badge = { text: 'แนะนำ', color: 'bg-purple-500', textColor: 'text-white' };
-                }
-
-                // Build unit-price pairs
-                const unitPricePairs = product.product_unit.map((unit) => {
-                  const priceGroup = product.product_price.find(
-                    (pg) => pg.product_price[0]?.product_unit_id === unit.id
-                  );
-                  const priceItem = priceGroup?.product_price[0];
-                  return { unit, priceItem };
-                });
-
-                const hasStock = product.product_stock.length > 0;
-
-                return (
-                  <Card
-                    key={`${data.sku}-${productIndex}`}
-                    className={cn(
-                      "group relative overflow-hidden cursor-pointer transition-all duration-200",
-                      "hover:shadow-lg hover:-translate-y-1",
-                      selected 
-                        ? "ring-2 ring-green-500 ring-offset-2 bg-green-50/50" 
-                        : "border-gray-200 hover:border-green-300"
-                    )}
-                    onClick={() => toggleSelection(product)}
-                  >
-                    {/* Badge */}
-                    {badge && (
-                      <div className={cn(
-                        "absolute top-2 left-2 z-10 px-2 py-0.5 rounded text-xs font-bold",
-                        badge.color, badge.textColor
-                      )}>
-                        {badge.text}
-                      </div>
-                    )}
-
-                    {/* RX Badge */}
-                    {(data.is_rx === 1 || product.is_rx === 1) && (
-                      <div className="absolute top-2 right-2 z-10 px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-600 border border-red-200">
-                        ยาตามใบสั่ง
-                      </div>
-                    )}
-
-                    {/* Selection Indicator */}
-                    {selected && (
-                      <div className="absolute top-8 right-2 z-20 w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center shadow-md">
-                        <Check className="w-4 h-4" />
-                      </div>
-                    )}
-
-                    {/* Image */}
-                    <div className="aspect-[4/3] bg-gray-100 relative overflow-hidden">
-                      {photo ? (
-                        <img
-                          src={`https://manager.cnypharmacy.com/${photo.photo_path}`}
-                          alt={data.name}
-                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                          loading="lazy"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                          }}
-                        />
-                      ) : null}
-                      <div className={cn(
-                        "w-full h-full flex items-center justify-center bg-gray-100",
-                        photo && "absolute inset-0 -z-10"
-                      )}>
-                        <Package className="w-10 h-10 text-gray-300" />
-                      </div>
-                      {/* Photo count badge */}
-                      {product.product_photo.length > 1 && (
-                        <div className="absolute bottom-1 right-1 z-10 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded">
-                          📷 {product.product_photo.length}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Content */}
-                    <CardContent className="p-3 space-y-2">
-                      {/* Name TH */}
-                      <h3 className="font-semibold text-sm text-gray-900 line-clamp-2 leading-tight">
-                        {data.name}
-                      </h3>
-
-                      {/* Name EN */}
-                      {data.name_en && (
-                        <p className="text-[11px] text-gray-500 line-clamp-1 leading-tight">
-                          {data.name_en}
-                        </p>
-                      )}
-
-                      {/* SKU + Barcode */}
-                      <div className="flex items-center gap-2 text-[10px] text-gray-400">
-                        <span>SKU: {data.sku}</span>
-                        {data.barcode && data.barcode !== data.sku && (
-                          <span>BC: {data.barcode}</span>
-                        )}
-                      </div>
-
-                      {/* Spec Name */}
-                      {data.spec_name && (
-                        <p className="text-[11px] text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded line-clamp-1">
-                          {data.spec_name}
-                        </p>
-                      )}
-
-                      {/* Unit + Price pairs */}
-                      <div className="space-y-1 border-t pt-2">
-                        {unitPricePairs.map(({ unit, priceItem }, idx) => {
-                          const price = parseFloat(priceItem?.price || '0');
-                          const promoPrice = parseFloat(priceItem?.promotion_price || '0');
-                          const hasPromo = promoPrice > 0 && promoPrice < price;
-
-                          return (
-                            <div key={unit.id || idx} className="flex items-center justify-between text-xs">
-                              <span className="text-gray-600 truncate max-w-[55%]">{unit.unit}</span>
-                              <div className="flex items-center gap-1">
-                                {price > 0 ? (
-                                  <>
-                                    {hasPromo && (
-                                      <span className="text-[10px] text-gray-400 line-through">฿{price.toLocaleString()}</span>
-                                    )}
-                                    <span className={cn("font-bold", hasPromo ? "text-red-600" : "text-gray-900")}>
-                                      ฿{(hasPromo ? promoPrice : price).toLocaleString()}
-                                    </span>
-                                  </>
-                                ) : (
-                                  <span className="text-gray-400 italic text-[10px]">ติดต่อสอบถาม</span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {/* Stock Info */}
-                      <div className="border-t pt-2">
-                        {hasStock ? (
-                          <div className="space-y-0.5">
-                            {product.product_stock.map((s, idx) => {
-                              const stockNum = parseFloat(s.stock_num || '0');
-                              return (
-                                <div key={s.productLotId || idx} className="flex items-center justify-between text-[11px]">
-                                  <span className={cn(
-                                    "font-medium",
-                                    stockNum > 10 ? "text-green-600" : stockNum > 0 ? "text-orange-500" : "text-red-500"
-                                  )}>
-                                    คงเหลือ {stockNum.toLocaleString()} ชิ้น
-                                  </span>
-                                  {s.expiry_date && (
-                                    <span className="text-[10px] text-gray-400">EXP: {s.expiry_date}</span>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <span className="text-[11px] text-gray-400">ไม่มีข้อมูลสต็อก</span>
-                        )}
-                      </div>
-
-                      {/* Stats row */}
-                      {(product.customer_buyed > 0 || product.product_wishlists > 0) && (
-                        <div className="flex items-center gap-3 text-[10px] text-gray-400 border-t pt-1.5">
-                          {product.customer_buyed > 0 && (
-                            <span>🛒 ขายแล้ว {product.customer_buyed}</span>
-                          )}
-                          {product.product_wishlists > 0 && (
-                            <span>❤ {product.product_wishlists}</span>
-                          )}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-center py-16">
-              <div className="w-20 h-20 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                <Package className="w-10 h-10 text-gray-400" />
-              </div>
-              <h3 className="text-lg font-medium text-gray-900">ไม่พบสินค้า</h3>
-              <p className="text-sm text-gray-500 mt-1">
-                ลองค้นหาด้วยคำค้นอื่น หรืออัปโหลดไฟล์ JSON ใหม่
-              </p>
-              <Button 
-                variant="outline"
-                className="mt-4"
-                onClick={resetToDefaultData}
-              >
-                กลับไปใช้ JSON หลัก
-              </Button>
-            </div>
+          
+          {selectedCount > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearSelections}
+              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+            >
+              <X className="w-4 h-4 mr-1" />
+              ล้างการเลือก
+            </Button>
           )}
         </div>
 
-        {/* Floating Action Button */}
-        {(selectedCount > 0 || flashSaleProducts.length > 0) && (
-          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3">
-            {/* Selected Count Card */}
-            <div className="bg-white rounded-full shadow-lg border px-4 py-2 flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center font-bold text-sm">
-                {flashSaleProducts.length > 0 ? flashSaleProducts.length : selectedCount}
-              </div>
-              <span className="text-sm font-medium text-gray-700">
-                {flashSaleProducts.length > 0 ? 'Flash Sale' : 'รายการที่เลือก'}
-              </span>
-              {selectedCount > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0 rounded-full hover:bg-red-50 hover:text-red-600"
-                  onClick={clearSelections}
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              )}
+        {/* Products Grid */}
+        {loading ? (
+          <div className="text-center py-16">
+            <RefreshCw className="w-10 h-10 mx-auto text-gray-400 animate-spin" />
+            <p className="text-gray-500 mt-4">กำลังโหลด...</p>
+          </div>
+        ) : products.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+            {products.map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                selected={selectedItems.has(product.productId)}
+                onToggle={() => toggleSelection(product.productId)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-16">
+            <div className="w-20 h-20 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-4">
+              <Package className="w-10 h-10 text-gray-400" />
             </div>
-
-            {/* Generate Flex Button */}
-            <Button
-              size="lg"
-              className="bg-green-600 hover:bg-green-700 text-white shadow-lg rounded-full px-6"
-              onClick={() => setShowFlexDialog(true)}
-            >
-              <Share2 className="w-5 h-5 mr-2" />
-              สร้าง Flex Message
-            </Button>
+            <h3 className="text-lg font-medium text-gray-900">ไม่พบสินค้า</h3>
+            <p className="text-sm text-gray-500 mt-1">
+              ลองค้นหาด้วยคำค้นอื่น หรือกด Sync เพื่อโหลดข้อมูลใหม่
+            </p>
           </div>
         )}
 
-        {/* Flex Message Dialog */}
-        <Dialog open={showFlexDialog} onOpenChange={setShowFlexDialog}>
-          <DialogContent className="max-w-3xl max-h-[90vh] p-0 overflow-hidden">
-            <DialogHeader className="px-6 py-4 border-b bg-gray-50">
-              <DialogTitle className="flex items-center gap-2 text-gray-900">
-                <Zap className="w-5 h-5 text-yellow-500" />
-                LINE Flex Message Preview
-              </DialogTitle>
-            </DialogHeader>
-
-            <div className="p-6 space-y-4">
-              {/* Items Summary */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                {flashSaleProducts.length > 0 && activeFilter === 'flashsale' ? (
-                  <>
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">
-                      ⚡ {flashSaleMenuName} ({flashSaleProducts.length} รายการ) — {bubbleCount} bubble(s)
-                    </h4>
-                    <ScrollArea className="h-32">
-                      <div className="space-y-2">
-                        {flashSaleProducts.map((item, idx) => (
-                          <div key={item.id} className="flex items-center justify-between text-sm bg-white p-2 rounded border">
-                            <div className="flex items-center gap-2">
-                              <span className="w-5 h-5 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center text-xs font-bold">
-                                {idx + 1}
-                              </span>
-                              <span className="truncate max-w-[200px]">{item.name}</span>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <span className="text-gray-400 line-through text-xs">฿{parseFloat(item.red_price).toLocaleString()}</span>
-                              <span className="font-medium text-red-600">฿{parseFloat(item.dark_price).toLocaleString()}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </ScrollArea>
-                  </>
-                ) : (
-                  <>
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">สินค้าที่เลือก ({selectedCount} รายการ) — {bubbleCount} bubble(s)</h4>
-                    <ScrollArea className="h-32">
-                      <div className="space-y-2">
-                        {Array.from(selectedItems.values()).map((item, idx) => {
-                          const data = item.product.product_data[0];
-                          const price = item.product.product_price[0]?.product_price[0];
-                          const displayPrice = price?.promotion_price !== '0.00' 
-                            ? parseFloat(price.promotion_price) 
-                            : parseFloat(price?.price || '0');
-                          
-                          return (
-                            <div key={`${data.id}-${idx}`} className="flex items-center justify-between text-sm bg-white p-2 rounded border">
-                              <div className="flex items-center gap-2">
-                                <span className="w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-xs font-bold">
-                                  {idx + 1}
-                                </span>
-                                <span className="truncate max-w-[200px]">{data.name}</span>
-                              </div>
-                              <div className="flex items-center gap-3">
-                                <span className="text-gray-500">x{item.quantity}</span>
-                                <span className="font-medium text-red-600">฿{displayPrice.toLocaleString()}</span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </ScrollArea>
-                  </>
-                )}
-              </div>
-
-              {/* JSON Output */}
-              <div className="relative">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-medium text-gray-700">JSON Output</h4>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={copyToClipboard}
-                      className={cn(
-                        "transition-colors",
-                        copied && "bg-green-50 text-green-600 border-green-200"
-                      )}
-                    >
-                      {copied ? <><Check className="w-4 h-4 mr-1" />คัดลอกแล้ว</> : <><Copy className="w-4 h-4 mr-1" />คัดลอก</>}
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={downloadJSON}>
-                      <Download className="w-4 h-4 mr-1" />ดาวน์โหลด
-                    </Button>
-                  </div>
-                </div>
-                
-                <ScrollArea className="h-64 bg-gray-900 rounded-lg">
-                  <pre className="p-4 text-xs font-mono text-green-400 whitespace-pre-wrap">{flexMessageJson}</pre>
-                </ScrollArea>
-              </div>
-
-              {/* Tips */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
-                <strong>💡 วิธีใช้:</strong> คัดลอก JSON ด้านบน แล้วนำไปใช้ใน LINE Messaging API หรือ Broadcast System
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        {/* Pagination */}
+        {pagination.totalPages > 1 && (
+          <div className="flex justify-center gap-2 mt-6">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pagination.page === 1}
+              onClick={() => setPagination(p => ({ ...p, page: p.page - 1 }))}
+            >
+              ก่อนหน้า
+            </Button>
+            <span className="px-4 py-2 text-sm text-gray-600">
+              หน้า {pagination.page} / {pagination.totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pagination.page === pagination.totalPages}
+              onClick={() => setPagination(p => ({ ...p, page: p.page + 1 }))}
+            >
+              ถัดไป
+            </Button>
+          </div>
+        )}
       </div>
-    </TooltipProvider>
+
+      {/* Floating Action Button */}
+      {selectedCount > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3">
+          <div className="bg-white rounded-full shadow-lg border px-4 py-2 flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center font-bold text-sm">
+              {selectedCount}
+            </div>
+            <span className="text-sm font-medium text-gray-700">รายการที่เลือก</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 rounded-full hover:bg-red-50 hover:text-red-600"
+              onClick={clearSelections}
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+
+          <Button
+            size="lg"
+            className="bg-green-600 hover:bg-green-700 text-white shadow-lg rounded-full px-6"
+            onClick={() => setShowFlexDialog(true)}
+          >
+            <Share2 className="w-5 h-5 mr-2" />
+            สร้าง Flex Message
+          </Button>
+        </div>
+      )}
+
+      {/* Flex Message Dialog */}
+      <Dialog open={showFlexDialog} onOpenChange={setShowFlexDialog}>
+        <DialogContent className="max-w-3xl max-h-[90vh] p-0 overflow-hidden">
+          <DialogHeader className="px-6 py-4 border-b bg-gray-50">
+            <DialogTitle className="flex items-center gap-2 text-gray-900">
+              <Zap className="w-5 h-5 text-yellow-500" />
+              LINE Flex Message Preview
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="p-6 space-y-4">
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h4 className="text-sm font-medium text-gray-700 mb-3">
+                สินค้าที่เลือก ({selectedCount} รายการ)
+              </h4>
+              <ScrollArea className="h-32">
+                <div className="space-y-2">
+                  {products
+                    .filter(p => selectedItems.has(p.productId))
+                    .map((product, idx) => (
+                      <div key={product.id} className="flex items-center justify-between text-sm bg-white p-2 rounded border">
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-xs font-bold">
+                            {idx + 1}
+                          </span>
+                          <span className="truncate max-w-[200px]">{product.name}</span>
+                        </div>
+                        <span className="font-medium text-red-600">
+                          ฿{Number(product.promotionPrice || product.basePrice).toLocaleString()}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              </ScrollArea>
+            </div>
+
+            <div className="relative">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-sm font-medium text-gray-700">JSON Output</h4>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={copyToClipboard}
+                    className={cn(
+                      "transition-colors",
+                      copied && "bg-green-50 text-green-600 border-green-200"
+                    )}
+                  >
+                    {copied ? <><Check className="w-4 h-4 mr-1" />คัดลอกแล้ว</> : <><Copy className="w-4 h-4 mr-1" />คัดลอก</>}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={downloadJSON}>
+                    <Download className="w-4 h-4 mr-1" />ดาวน์โหลด
+                  </Button>
+                </div>
+              </div>
+              
+              <ScrollArea className="h-64 bg-gray-900 rounded-lg">
+                <pre className="p-4 text-xs font-mono text-green-400 whitespace-pre-wrap">{flexMessageJson}</pre>
+              </ScrollArea>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
+              <strong>💡 วิธีใช้:</strong> คัดลอก JSON ด้านบน แล้วนำไปใช้ใน LINE Messaging API หรือ Broadcast System
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
