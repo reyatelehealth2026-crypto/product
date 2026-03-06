@@ -16,20 +16,18 @@ import {
   Upload,
   FileJson,
   AlertCircle,
-  Loader2,
-  Globe,
-  ChevronDown
+  Loader2
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
-import type { Product, ProductUnit, SelectedProduct, FlashSaleProduct, FlashSaleResponse, BroadcastItem, BroadcastCategory } from '@/types/product';
-import { generateFlexMessage, productToBroadcastItem, flashSaleToBroadcastItem, generateBroadcastCarousel } from '@/types/product';
+import type { Product, SelectedProduct, FlashSaleProduct, FlashSaleResponse, BroadcastCategory } from '@/types/product';
+import { productToBroadcastItem, flashSaleToBroadcastItem, generateBroadcastCarousel } from '@/types/product';
 import { SAMPLE_PRODUCTS } from './sample-data';
 
 interface ProductSelectorProps {
@@ -37,7 +35,7 @@ interface ProductSelectorProps {
 }
 
 type FilterType = 'all' | 'flashsale' | 'promotion' | 'new' | 'bestseller';
-type DataSource = 'sample' | 'upload' | 'api';
+type DataSource = 'default' | 'upload' | 'flashsale';
 
 const FILTERS: { key: FilterType; label: string; icon: React.ElementType; color: string; bgColor: string }[] = [
   { key: 'all', label: 'ทั้งหมด', icon: Package, color: 'text-gray-700', bgColor: 'bg-gray-100' },
@@ -49,7 +47,7 @@ const FILTERS: { key: FilterType; label: string; icon: React.ElementType; color:
 
 export default function ProductSelector({ initialProducts = SAMPLE_PRODUCTS }: ProductSelectorProps) {
   const [products, setProducts] = useState<Product[]>(initialProducts);
-  const [dataSource, setDataSource] = useState<DataSource>('sample');
+  const [dataSource, setDataSource] = useState<DataSource>('default');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [selectedItems, setSelectedItems] = useState<Map<number, SelectedProduct>>(new Map());
@@ -59,12 +57,10 @@ export default function ProductSelector({ initialProducts = SAMPLE_PRODUCTS }: P
   const [isDragging, setIsDragging] = useState(false);
   const [bubbleCount, setBubbleCount] = useState(6);
   const [flashSaleLoading, setFlashSaleLoading] = useState(false);
-  const [apiLoading, setApiLoading] = useState(false);
   const [flashSaleProducts, setFlashSaleProducts] = useState<FlashSaleProduct[]>([]);
   const [flashSaleMenuName, setFlashSaleMenuName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Filter products
   const filteredProducts = useMemo(() => {
     return products.filter(product => {
       const data = product.product_data[0];
@@ -79,9 +75,6 @@ export default function ProductSelector({ initialProducts = SAMPLE_PRODUCTS }: P
 
       let matchesFilter = true;
       switch (activeFilter) {
-        case 'flashsale':
-          matchesFilter = product.product_is_flashSale === 1 || data.is_promotion === 1;
-          break;
         case 'promotion':
           matchesFilter = data.is_promotion === 1;
           break;
@@ -96,6 +89,21 @@ export default function ProductSelector({ initialProducts = SAMPLE_PRODUCTS }: P
       return matchesSearch && matchesFilter;
     });
   }, [products, searchQuery, activeFilter]);
+
+  const filteredFlashSaleProducts = useMemo(() => {
+    return flashSaleProducts.filter((item) => {
+      const searchLower = searchQuery.toLowerCase();
+
+      return !searchQuery ||
+        item.name.toLowerCase().includes(searchLower) ||
+        item.name_en.toLowerCase().includes(searchLower) ||
+        item.sku.toLowerCase().includes(searchLower) ||
+        item.barcode.toLowerCase().includes(searchLower);
+    });
+  }, [flashSaleProducts, searchQuery]);
+
+  const showingFlashSaleView = activeFilter === 'flashsale' && flashSaleProducts.length > 0;
+  const visibleCount = showingFlashSaleView ? filteredFlashSaleProducts.length : filteredProducts.length;
 
   // Handle file upload
   const handleFileUpload = useCallback(async (file: File) => {
@@ -163,15 +171,15 @@ export default function ProductSelector({ initialProducts = SAMPLE_PRODUCTS }: P
     }
   }, [handleFileUpload]);
 
-  // Reset to sample data
   const resetToSample = useCallback(() => {
-    setProducts(SAMPLE_PRODUCTS);
-    setDataSource('sample');
+    setProducts(initialProducts.length > 0 ? initialProducts : SAMPLE_PRODUCTS);
+    setDataSource('default');
     setUploadError(null);
     setSelectedItems(new Map());
     setFlashSaleProducts([]);
     setFlashSaleMenuName('');
-  }, []);
+    setActiveFilter('all');
+  }, [initialProducts]);
 
   // Fetch Flash Sale from API
   const fetchFlashSale = useCallback(async () => {
@@ -187,36 +195,12 @@ export default function ProductSelector({ initialProducts = SAMPLE_PRODUCTS }: P
       setFlashSaleProducts(allProducts);
       setFlashSaleMenuName(data.flasSale_menu?.[0]?.name || 'Flash Sale');
       setActiveFilter('flashsale');
-      setDataSource('api');
+      setDataSource('flashsale');
       setSelectedItems(new Map());
     } catch (err) {
       setUploadError(`ไม่สามารถดึงข้อมูล Flash Sale ได้: ${(err as Error).message}`);
     } finally {
       setFlashSaleLoading(false);
-    }
-  }, []);
-
-  // Fetch products from API
-  const fetchFromApi = useCallback(async (page: number = 1) => {
-    setApiLoading(true);
-    setUploadError(null);
-    try {
-      const apiUrl = encodeURIComponent(`https://www.cnypharmacy.com/api/getDataProductIsGroup?page=${page}`);
-      const res = await fetch(`/api/products?url=${apiUrl}`);
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error || 'Failed to fetch');
-
-      const productArray: Product[] = json.data.product || [];
-      if (productArray.length === 0) throw new Error('ไม่พบข้อมูลสินค้า');
-
-      setProducts(productArray);
-      setDataSource('api');
-      setFlashSaleProducts([]);
-      setSelectedItems(new Map());
-    } catch (err) {
-      setUploadError(`ไม่สามารถดึงข้อมูลสินค้าได้: ${(err as Error).message}`);
-    } finally {
-      setApiLoading(false);
     }
   }, []);
 
@@ -329,7 +313,7 @@ export default function ProductSelector({ initialProducts = SAMPLE_PRODUCTS }: P
                   อัปโหลด JSON
                 </Button>
 
-                {dataSource !== 'sample' && (
+                {dataSource !== 'default' && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -352,17 +336,6 @@ export default function ProductSelector({ initialProducts = SAMPLE_PRODUCTS }: P
                 >
                   {flashSaleLoading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Zap className="w-4 h-4 mr-1" />}
                   ดึง Flash Sale
-                </Button>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fetchFromApi(1)}
-                  disabled={apiLoading}
-                  className="bg-blue-50 border-blue-300 text-blue-800 hover:bg-blue-100"
-                >
-                  {apiLoading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Globe className="w-4 h-4 mr-1" />}
-                  ดึงจาก API
                 </Button>
 
                 <div className="flex items-center gap-1.5 ml-auto">
@@ -447,13 +420,16 @@ export default function ProductSelector({ initialProducts = SAMPLE_PRODUCTS }: P
           {/* Data Source Badge */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">พบ <span className="font-semibold text-gray-900">{filteredProducts.length}</span> รายการ</span>
+              <span className="text-sm text-gray-600">พบ <span className="font-semibold text-gray-900">{visibleCount}</span> รายการ</span>
               
-              {dataSource === 'sample' && (
-                <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full">ตัวอย่าง</span>
+              {dataSource === 'default' && (
+                <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full">JSON หลัก</span>
               )}
               {dataSource === 'upload' && (
                 <span className="px-2 py-0.5 bg-green-100 text-green-600 text-xs rounded-full">อัปโหลด</span>
+              )}
+              {dataSource === 'flashsale' && (
+                <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full">Flash Sale API</span>
               )}
               
               {selectedCount > 0 && (
@@ -477,9 +453,91 @@ export default function ProductSelector({ initialProducts = SAMPLE_PRODUCTS }: P
           </div>
 
           {/* Products Grid */}
-          {filteredProducts.length > 0 ? (
+          {showingFlashSaleView ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-              {filteredProducts.map((product) => {
+              {filteredFlashSaleProducts.map((item, index) => {
+                const soldPercent = item.flasSale?.[0]?.quota
+                  ? Math.round(((item.flasSale?.[0]?.usage || 0) / item.flasSale[0].quota) * 100)
+                  : 0;
+
+                return (
+                  <Card
+                    key={`${item.sku}-${index}`}
+                    className="group relative overflow-hidden border-gray-200 hover:border-green-300 transition-all duration-200 hover:shadow-lg hover:-translate-y-1"
+                  >
+                    <div className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded text-xs font-bold bg-red-500 text-white">
+                      FlashSale
+                    </div>
+
+                    <div className="aspect-square bg-gray-100 relative overflow-hidden">
+                      <img
+                        src={`https://manager.cnypharmacy.com/${item.photo_path}`}
+                        alt={item.name}
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        loading="lazy"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                      <div className="w-full h-full flex items-center justify-center bg-gray-100 absolute inset-0 -z-10">
+                        <Package className="w-10 h-10 text-gray-300" />
+                      </div>
+                    </div>
+
+                    <CardContent className="p-2.5 space-y-1.5">
+                      <h3 className="font-medium text-xs text-gray-900 line-clamp-2 min-h-[2rem] leading-tight">
+                        {item.name}
+                      </h3>
+
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-sm font-bold text-red-600">
+                          ฿{parseFloat(item.dark_price).toLocaleString()}
+                        </span>
+                        {parseFloat(item.dark_price) < parseFloat(item.red_price) && (
+                          <span className="text-[10px] text-gray-400 line-through">
+                            ฿{parseFloat(item.red_price).toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-orange-400 to-red-500 rounded-full transition-all"
+                            style={{ width: `${Math.min(soldPercent, 100)}%` }}
+                          />
+                        </div>
+                        <p className="text-[10px] text-gray-500">
+                          ขายแล้ว {Math.min(soldPercent, 100)}%
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : activeFilter === 'flashsale' ? (
+            <div className="text-center py-16">
+              <div className="w-20 h-20 mx-auto bg-yellow-50 rounded-full flex items-center justify-center mb-4">
+                <Zap className="w-10 h-10 text-yellow-500" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900">ยังไม่ได้ดึง Flash Sale</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                กดปุ่ม <span className="font-medium text-yellow-700">ดึง Flash Sale</span> เพื่อโหลดสินค้าหมวดนี้
+              </p>
+              <Button
+                variant="outline"
+                className="mt-4 bg-yellow-50 border-yellow-300 text-yellow-800 hover:bg-yellow-100"
+                onClick={fetchFlashSale}
+                disabled={flashSaleLoading}
+              >
+                {flashSaleLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
+                ดึง Flash Sale
+              </Button>
+            </div>
+          ) : filteredProducts.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+              {filteredProducts.map((product, productIndex) => {
                 const data = product.product_data[0];
                 const price = product.product_price[0]?.product_price[0];
                 const photo = product.product_photo[0];
@@ -507,7 +565,7 @@ export default function ProductSelector({ initialProducts = SAMPLE_PRODUCTS }: P
 
                 return (
                   <Card
-                    key={data.id}
+                    key={`${data.sku}-${productIndex}`}
                     className={cn(
                       "group relative overflow-hidden cursor-pointer transition-all duration-200",
                       "hover:shadow-lg hover:-translate-y-1",
@@ -545,7 +603,7 @@ export default function ProductSelector({ initialProducts = SAMPLE_PRODUCTS }: P
                     <div className="aspect-square bg-gray-100 relative overflow-hidden">
                       {photo ? (
                         <img
-                          src={`https://www.cnypharmacy.com/${photo.photo_path}`}
+                          src={`https://manager.cnypharmacy.com/${photo.photo_path}`}
                           alt={data.name}
                           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                           loading="lazy"
@@ -705,7 +763,7 @@ export default function ProductSelector({ initialProducts = SAMPLE_PRODUCTS }: P
                             : parseFloat(price?.price || '0');
                           
                           return (
-                            <div key={data.id} className="flex items-center justify-between text-sm bg-white p-2 rounded border">
+                            <div key={`${data.id}-${idx}`} className="flex items-center justify-between text-sm bg-white p-2 rounded border">
                               <div className="flex items-center gap-2">
                                 <span className="w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-xs font-bold">
                                   {idx + 1}
