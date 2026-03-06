@@ -55,6 +55,8 @@ export default function ProductSelector() {
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const [canResume, setCanResume] = useState(false);
   const [syncStats, setSyncStats] = useState<{totalProducts: number; lastSync: any} | null>(null);
+  const [syncStartPage, setSyncStartPage] = useState(1);
+  const [syncEndPage, setSyncEndPage] = useState<number | ''>(100);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 24,
@@ -132,15 +134,15 @@ export default function ProductSelector() {
     }
   };
 
-  // Step-by-step sync (auto-continue until complete)
-  const runStepSync = async (startPage = 1, accumulated = 0) => {
+  // Step-by-step sync with page range support
+  const runStepSync = async (startPage = 1, endPage: number | null = null, accumulated = 0) => {
     setSyncing(true);
     
     try {
       const response = await fetch('/api/sync', { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ startPage, maxPages: 2 }),
+        body: JSON.stringify({ startPage, endPage, maxPages: 2 }),
       });
       const data = await response.json();
       
@@ -151,13 +153,13 @@ export default function ProductSelector() {
       }
       
       const newTotal = accumulated + data.processed;
-      setSyncStatus(`กำลังซิงค์... หน้า ${startPage} เสร็จแล้ว ${newTotal} รายการ`);
+      const rangeText = endPage ? `(${startPage}-${endPage})` : '';
+      setSyncStatus(`กำลังซิงค์${rangeText}... หน้า ${data.currentPage} เสร็จแล้ว ${newTotal} รายการ`);
       
       // If more pages, continue automatically
       if (data.hasMore && data.nextPage) {
-        // Small delay to prevent rate limiting
         await new Promise(r => setTimeout(r, 500));
-        await runStepSync(data.nextPage, newTotal);
+        await runStepSync(data.nextPage, endPage, newTotal);
       } else {
         setSyncStatus(`ซิงค์เสร็จสมบูรณ์! ทั้งหมด ${newTotal} รายการ`);
         setCanResume(false);
@@ -170,18 +172,15 @@ export default function ProductSelector() {
     }
   };
 
-  // Sync products (now auto-continues)
+  // Sync products (now auto-continues with page range)
   const syncProducts = async (resume = false, force = false) => {
     if (force && !confirm('⚠️ นี่จะลบข้อมูลสินค้าทั้งหมดและซิงค์ใหม่! ต้องการดำเนินการต่อหรือไม่?')) {
       return;
     }
     
-    // Get resume page
-    let startPage = 1;
-    if (resume && syncStats?.lastSync?.errorMessage) {
-      const match = syncStats.lastSync.errorMessage.match(/page:(\d+)/);
-      if (match) startPage = parseInt(match[1]);
-    }
+    // Use page range from state
+    const startPage = syncStartPage;
+    const endPage = syncEndPage || null;
     
     // Clear if force
     if (force) {
@@ -192,8 +191,8 @@ export default function ProductSelector() {
       });
     }
     
-    // Start step-by-step sync
-    await runStepSync(startPage, 0);
+    // Start step-by-step sync with page range
+    await runStepSync(startPage, endPage, 0);
   };
 
   useEffect(() => {
@@ -313,6 +312,27 @@ export default function ProductSelector() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10 border-gray-200 focus:border-green-500 focus:ring-green-500"
+                />
+              </div>
+              
+              {/* Page Range Inputs */}
+              <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg border">
+                <span className="text-xs text-gray-500 whitespace-nowrap">หน้า:</span>
+                <Input
+                  type="number"
+                  min={1}
+                  value={syncStartPage}
+                  onChange={(e) => setSyncStartPage(parseInt(e.target.value) || 1)}
+                  className="w-16 h-8 text-center text-sm"
+                />
+                <span className="text-gray-400">-</span>
+                <Input
+                  type="number"
+                  min={1}
+                  value={syncEndPage}
+                  onChange={(e) => setSyncEndPage(e.target.value ? parseInt(e.target.value) : '')}
+                  placeholder="สุดท้าย"
+                  className="w-20 h-8 text-center text-sm"
                 />
               </div>
               

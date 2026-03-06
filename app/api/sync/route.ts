@@ -42,19 +42,27 @@ interface ApiProduct {
   customer_buyed: number;
 }
 
-// STEP-BY-STEP SYNC - Each call processes only ONE page
-// Frontend calls this repeatedly until complete
+// STEP-BY-STEP SYNC with PAGE RANGE support
 export async function POST(request: NextRequest) {
-  const MAX_TIME_MS = 20000; // 20 seconds max per call (safe limit)
+  const MAX_TIME_MS = 20000; // 20 seconds max per call
   const startTime = Date.now();
   
   try {
     const body = await request.json().catch(() => ({}));
     const { 
       startPage = 1,        // Page to start from
-      maxPages = 2,         // Pages per batch (keep small!)
+      endPage = null,       // Page to stop (null = no limit)
+      maxPages = 2,         // Pages per batch
       clearExisting = false
     } = body;
+    
+    // Validate page range
+    if (endPage && endPage < startPage) {
+      return NextResponse.json({
+        success: false,
+        error: 'endPage must be greater than or equal to startPage'
+      }, { status: 400 });
+    }
     
     // Clear if requested
     if (clearExisting && startPage === 1) {
@@ -66,19 +74,31 @@ export async function POST(request: NextRequest) {
     let processedCount = 0;
     let errorCount = 0;
     let hasMore = true;
-    let lastProcessedId = 0;
+    let stoppedByLimit = false;
     
-    // Process pages until time limit or no more data
-    for (let pageCount = 0; pageCount < maxPages; pageCount++) {
+    // Calculate actual max pages (respect endPage)
+    const actualMaxPages = endPage 
+      ? Math.min(maxPages, endPage - startPage + 1)
+      : maxPages;
+    
+    // Process pages
+    for (let pageCount = 0; pageCount < actualMaxPages; pageCount++) {
       // Check time limit
       if (Date.now() - startTime > MAX_TIME_MS) {
-        console.log('Time limit reached, returning for next batch');
+        console.log('Time limit reached');
+        stoppedByLimit = true;
+        break;
+      }
+      
+      // Check if we reached endPage
+      if (endPage && currentPage > endPage) {
+        console.log(`Reached endPage ${endPage}`);
+        hasMore = false;
         break;
       }
       
       console.log(`Fetching page ${currentPage}...`);
       
-      // Fetch ONE page at a time
       const response = await fetch(
         `https://www.cnypharmacy.com/api/getDataProductIsGroup?page=${currentPage}&sort_product_name=asc&isPageGroup=8&paginate_num=25`,
         { 
@@ -93,7 +113,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
           success: false,
           error: `API error: ${response.status}`,
-          nextPage: currentPage,
+          currentPage,
           processed: processedCount,
           status: 'error'
         });
@@ -107,7 +127,7 @@ export async function POST(request: NextRequest) {
         break;
       }
       
-      // Save products for this page
+      // Save products
       for (const item of products) {
         try {
           const productData = item.product_data?.[0];
@@ -166,7 +186,6 @@ export async function POST(request: NextRequest) {
           });
           
           processedCount++;
-          lastProcessedId = productData.id;
         } catch (err) {
           console.error(`Error saving product ${item.product_data?.[0]?.id}:`, err);
           errorCount++;
@@ -176,7 +195,11 @@ export async function POST(request: NextRequest) {
       currentPage++;
     }
     
-    // Return status with next page info
+    // Check if we completed the range
+    const isComplete = endPage 
+      ? (currentPage > endPage || (!hasMore && !stoppedByLimit))
+      : !hasMore;
+    
     const totalInDb = await prisma.product.count();
     
     return NextResponse.json({
@@ -184,11 +207,12 @@ export async function POST(request: NextRequest) {
       processed: processedCount,
       errors: errorCount,
       startPage,
-      currentPage,
-      nextPage: hasMore ? currentPage : null,
-      hasMore,
+      endPage,
+      currentPage: currentPage - 1,
+      nextPage: isComplete ? null : currentPage,
+      hasMore: !isComplete,
       totalInDb,
-      status: hasMore ? 'partial' : 'complete',
+      status: isComplete ? 'complete' : 'partial',
       duration: `${(Date.now() - startTime) / 1000}s`
     });
     
