@@ -16,7 +16,8 @@ import {
   RefreshCw,
   Database,
   Play,
-  AlertTriangle
+  AlertTriangle,
+  FileJson
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -101,6 +102,35 @@ export default function ProductSelector() {
     };
     checkSyncStatus();
   }, []);
+
+  // Import from JSON file - FAST!
+  const importFromJSON = async (clearExisting = false) => {
+    if (clearExisting && !confirm('⚠️ นี่จะลบข้อมูลทั้งหมดแล้ว import ใหม่จาก JSON! ต้องการดำเนินการต่อหรือไม่?')) {
+      return;
+    }
+    
+    setSyncing(true);
+    setSyncStatus(null);
+    try {
+      const response = await fetch('/api/import-json', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clearExisting, batchSize: 100 }),
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        setSyncStatus(`Import สำเร็จ: ${data.imported} รายการ ใช้เวลา ${data.duration}`);
+        fetchProducts(); // Refresh list
+      } else {
+        setSyncStatus(`Import ล้มเหลว: ${data.error}`);
+      }
+    } catch (error) {
+      setSyncStatus('Import ล้มเหลว: Network error');
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   // Sync products from external API
   const syncProducts = async (resume = false, force = false) => {
@@ -285,6 +315,17 @@ export default function ProductSelector() {
                 >
                   <AlertTriangle className="w-4 h-4 mr-2" />
                   Force Resync
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  onClick={() => importFromJSON(false)}
+                  disabled={syncing}
+                  className="whitespace-nowrap bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                  title="Import จากไฟล์ JSON (เร็วมาก!)"
+                >
+                  <FileJson className="w-4 h-4 mr-2" />
+                  Import JSON
                 </Button>
                 
                 <Button
