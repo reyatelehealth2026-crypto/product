@@ -132,35 +132,68 @@ export default function ProductSelector() {
     }
   };
 
-  // Sync products from external API
-  const syncProducts = async (resume = false, force = false) => {
-    if (force && !confirm('⚠️ นี่จะลบข้อมูลสินค้าทั้งหมดและซิงค์ใหม่! ต้องการดำเนินการต่อหรือไม่?')) {
-      return;
-    }
-    
+  // Step-by-step sync (auto-continue until complete)
+  const runStepSync = async (startPage = 1, accumulated = 0) => {
     setSyncing(true);
-    setSyncStatus(null);
+    
     try {
       const response = await fetch('/api/sync', { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resume, force }),
+        body: JSON.stringify({ startPage, maxPages: 2 }),
       });
       const data = await response.json();
       
-      if (data.success) {
-        const action = force ? 'Force Resync' : (resume ? 'Resume' : 'Sync');
-        setSyncStatus(`${action} ${data.status === 'partial' ? 'ยังไม่เสร็จ' : 'สำเร็จ'}: ${data.message}`);
-        setCanResume(data.canResume);
-        fetchProducts(); // Refresh list
-      } else {
+      if (!data.success) {
         setSyncStatus(`Sync ล้มเหลว: ${data.error}`);
+        setSyncing(false);
+        return;
+      }
+      
+      const newTotal = accumulated + data.processed;
+      setSyncStatus(`กำลังซิงค์... หน้า ${startPage} เสร็จแล้ว ${newTotal} รายการ`);
+      
+      // If more pages, continue automatically
+      if (data.hasMore && data.nextPage) {
+        // Small delay to prevent rate limiting
+        await new Promise(r => setTimeout(r, 500));
+        await runStepSync(data.nextPage, newTotal);
+      } else {
+        setSyncStatus(`ซิงค์เสร็จสมบูรณ์! ทั้งหมด ${newTotal} รายการ`);
+        setCanResume(false);
+        fetchProducts();
       }
     } catch (error) {
       setSyncStatus('Sync ล้มเหลว: Network error');
     } finally {
       setSyncing(false);
     }
+  };
+
+  // Sync products (now auto-continues)
+  const syncProducts = async (resume = false, force = false) => {
+    if (force && !confirm('⚠️ นี่จะลบข้อมูลสินค้าทั้งหมดและซิงค์ใหม่! ต้องการดำเนินการต่อหรือไม่?')) {
+      return;
+    }
+    
+    // Get resume page
+    let startPage = 1;
+    if (resume && syncStats?.lastSync?.errorMessage) {
+      const match = syncStats.lastSync.errorMessage.match(/page:(\d+)/);
+      if (match) startPage = parseInt(match[1]);
+    }
+    
+    // Clear if force
+    if (force) {
+      await fetch('/api/sync', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clearExisting: true }),
+      });
+    }
+    
+    // Start step-by-step sync
+    await runStepSync(startPage, 0);
   };
 
   useEffect(() => {

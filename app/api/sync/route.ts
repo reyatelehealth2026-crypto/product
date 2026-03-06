@@ -42,71 +42,45 @@ interface ApiProduct {
   customer_buyed: number;
 }
 
-// Resume sync from last synced product ID
+// STEP-BY-STEP SYNC - Each call processes only ONE page
+// Frontend calls this repeatedly until complete
 export async function POST(request: NextRequest) {
+  const MAX_TIME_MS = 20000; // 20 seconds max per call (safe limit)
+  const startTime = Date.now();
+  
   try {
     const body = await request.json().catch(() => ({}));
     const { 
-      resume = false,           // true = resume from last position
-      batchSize = 50,           // items per batch
-      page = 1,                 // start page
-      updateExisting = false,   // true = update even if exists
-      force = false             // true = clear all and resync
+      startPage = 1,        // Page to start from
+      maxPages = 2,         // Pages per batch (keep small!)
+      clearExisting = false
     } = body;
     
-    let startPage = page;
-    let lastSyncedId = 0;
-    
-    // If force mode, clear all products
-    if (force) {
-      console.log('Force resync: clearing all products...');
+    // Clear if requested
+    if (clearExisting && startPage === 1) {
+      console.log('Clearing existing products...');
       await prisma.product.deleteMany({});
-      await prisma.syncLog.create({
-        data: {
-          syncType: 'force-clear',
-          itemsCount: 0,
-          status: 'success',
-          errorMessage: 'Cleared all products for force resync',
-        },
-      });
     }
     
-    // If resume mode, find last synced product
-    if (resume) {
-      const lastSync = await prisma.syncLog.findFirst({
-        where: { status: { in: ['success', 'partial'] } },
-        orderBy: { createdAt: 'desc' },
-      });
-      
-      if (lastSync?.errorMessage?.includes('lastId:')) {
-        const match = lastSync.errorMessage.match(/lastId:(\d+)/);
-        if (match) {
-          lastSyncedId = parseInt(match[1]);
-        }
-      }
-      
-      // Calculate approximate page from synced count
-      if (lastSync?.itemsCount) {
-        startPage = Math.floor(lastSync.itemsCount / 25) + 1;
-      }
-    }
-    
-    let totalSuccess = 0;
-    let totalError = 0;
     let currentPage = startPage;
+    let processedCount = 0;
+    let errorCount = 0;
     let hasMore = true;
-    let lastProcessedId = lastSyncedId;
+    let lastProcessedId = 0;
     
-    // Process in batches until complete or timeout
-    const startTime = Date.now();
-    const maxDuration = 250 * 1000; // 250 seconds (before Vercel 300s timeout)
-    
-    while (hasMore && (Date.now() - startTime) < maxDuration) {
-      console.log(`Syncing page ${currentPage}...`);
+    // Process pages until time limit or no more data
+    for (let pageCount = 0; pageCount < maxPages; pageCount++) {
+      // Check time limit
+      if (Date.now() - startTime > MAX_TIME_MS) {
+        console.log('Time limit reached, returning for next batch');
+        break;
+      }
       
-      // Fetch from API with pagination
+      console.log(`Fetching page ${currentPage}...`);
+      
+      // Fetch ONE page at a time
       const response = await fetch(
-        `https://www.cnypharmacy.com/api/getDataProductIsGroup?page=${currentPage}&sort_product_name=asc&isPageGroup=8&paginate_num=${batchSize}`,
+        `https://www.cnypharmacy.com/api/getDataProductIsGroup?page=${currentPage}&sort_product_name=asc&isPageGroup=8&paginate_num=25`,
         { 
           next: { revalidate: 0 },
           headers: {
@@ -116,7 +90,13 @@ export async function POST(request: NextRequest) {
       );
       
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+        return NextResponse.json({
+          success: false,
+          error: `API error: ${response.status}`,
+          nextPage: currentPage,
+          processed: processedCount,
+          status: 'error'
+        });
       }
       
       const data = await response.json();
@@ -127,7 +107,7 @@ export async function POST(request: NextRequest) {
         break;
       }
       
-      // Process each product in batch
+      // Save products for this page
       for (const item of products) {
         try {
           const productData = item.product_data?.[0];
@@ -136,19 +116,6 @@ export async function POST(request: NextRequest) {
           
           if (!productData) continue;
           
-          // Skip if already exists and not update mode
-          if (!updateExisting && !resume) {
-            const existing = await prisma.product.findUnique({
-              where: { productId: productData.id },
-              select: { id: true }
-            });
-            if (existing) {
-              lastProcessedId = productData.id;
-              continue;
-            }
-          }
-          
-          // Upsert product
           await prisma.product.upsert({
             where: { productId: productData.id },
             update: {
@@ -198,89 +165,52 @@ export async function POST(request: NextRequest) {
             },
           });
           
-          totalSuccess++;
+          processedCount++;
           lastProcessedId = productData.id;
         } catch (err) {
-          console.error(`Error processing product ${item.product_data?.[0]?.id}:`, err);
-          totalError++;
+          console.error(`Error saving product ${item.product_data?.[0]?.id}:`, err);
+          errorCount++;
         }
       }
       
       currentPage++;
-      
-      // Save progress every 5 pages
-      if (currentPage % 5 === 0) {
-        await prisma.syncLog.create({
-          data: {
-            syncType: 'progress',
-            itemsCount: totalSuccess,
-            status: 'partial',
-            errorMessage: `lastId:${lastProcessedId}, page:${currentPage}`,
-          },
-        });
-      }
     }
     
-    // Final log
-    const status = hasMore ? 'partial' : 'success';
-    await prisma.syncLog.create({
-      data: {
-        syncType: force ? 'force-resync' : (resume ? 'resume' : 'full'),
-        itemsCount: totalSuccess,
-        status,
-        errorMessage: status === 'partial' 
-          ? `lastId:${lastProcessedId}, page:${currentPage}, incomplete:timeout` 
-          : null,
-      },
-    });
+    // Return status with next page info
+    const totalInDb = await prisma.product.count();
     
     return NextResponse.json({
       success: true,
-      message: `Synced ${totalSuccess} products (${totalError} errors)`,
-      status,
-      lastId: lastProcessedId,
+      processed: processedCount,
+      errors: errorCount,
+      startPage,
+      currentPage,
       nextPage: hasMore ? currentPage : null,
-      canResume: hasMore,
+      hasMore,
+      totalInDb,
+      status: hasMore ? 'partial' : 'complete',
+      duration: `${(Date.now() - startTime) / 1000}s`
     });
     
   } catch (error) {
     console.error('Sync error:', error);
-    
-    await prisma.syncLog.create({
-      data: {
-        syncType: 'full',
-        itemsCount: 0,
-        status: 'error',
-        errorMessage: (error as Error).message,
-      },
+    return NextResponse.json({
+      success: false,
+      error: (error as Error).message,
+      status: 'error'
     });
-    
-    return NextResponse.json(
-      { success: false, error: (error as Error).message },
-      { status: 500 }
-    );
   }
 }
 
-// Get sync status
+// Get status
 export async function GET() {
+  const totalProducts = await prisma.product.count();
   const latestSync = await prisma.syncLog.findFirst({
     orderBy: { createdAt: 'desc' },
   });
   
-  const productCount = await prisma.product.count();
-  
-  // Check if can resume
-  const canResume = latestSync?.status === 'partial' && 
-    latestSync?.errorMessage?.includes('lastId:');
-  
   return NextResponse.json({
-    lastSync: latestSync,
-    totalProducts: productCount,
-    canResume,
-    resumeInfo: canResume ? {
-      lastId: parseInt(latestSync.errorMessage?.match(/lastId:(\d+)/)?.[1] || '0'),
-      nextPage: parseInt(latestSync.errorMessage?.match(/page:(\d+)/)?.[1] || '1'),
-    } : null,
+    totalProducts,
+    latestSync,
   });
 }
