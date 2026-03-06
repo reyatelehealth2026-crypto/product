@@ -9,7 +9,6 @@ async function getInitialProducts(): Promise<Product[]> {
     const filePath = path.join(process.cwd(), 'getDataProductIsGroup.json');
     const fileContent = await fs.readFile(filePath, 'utf8');
     const parsed = JSON.parse(fileContent);
-
     return Array.isArray(parsed.product) ? parsed.product : [];
   } catch {
     return [];
