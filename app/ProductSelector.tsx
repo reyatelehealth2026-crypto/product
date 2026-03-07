@@ -830,14 +830,42 @@ export default function ProductSelector() {
                   <div className="rounded-2xl border bg-white p-4 space-y-3">
                     <h3 className="font-semibold text-gray-900">หน่วยขาย</h3>
                     <div className="flex flex-wrap gap-2">
-                      {(((selectedProduct.units as Array<{ unit: string; contain: number; unit_num?: number }>) || []).length > 0)
-                        ? ((selectedProduct.units as Array<{ unit: string; contain: number; unit_num?: number }>) || []).map((unit, index) => (
+                      {(((selectedProduct.units as Array<{ unit: string; contain?: number; unitNum?: number }>) || []).length > 0)
+                        ? ((selectedProduct.units as Array<{ unit: string; contain?: number; unitNum?: number }>) || []).map((unit, index) => (
                             <div key={index} className="rounded-lg border bg-gray-50 px-3 py-2 text-sm text-gray-700">
-                              {unit.unit} {unit.contain ? `(contain ${unit.contain})` : ''}
+                              {unit.unit}
+                              {typeof unit.contain === 'number' ? ` • contain ${unit.contain}` : ''}
+                              {typeof unit.unitNum === 'number' ? ` • unit ${unit.unitNum}` : ''}
                             </div>
                           ))
                         : <p className="text-sm text-gray-500">ไม่มีข้อมูลหน่วยขาย</p>}
                     </div>
+                  </div>
+
+                  <div className="rounded-2xl border bg-white p-4 space-y-3">
+                    <h3 className="font-semibold text-gray-900">ราคาแบบ normalized</h3>
+                    {(((selectedProduct.prices as Array<{ price?: number; promotionPrice?: number; buyMin?: number; buyMax?: number; productUnitId?: number }>) || []).length > 0)
+                      ? <div className="space-y-2">
+                          {((selectedProduct.prices as Array<{ price?: number; promotionPrice?: number; buyMin?: number; buyMax?: number; productUnitId?: number }>) || []).map((price, index) => (
+                            <div key={index} className="rounded-lg border bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                              unitId: {price.productUnitId || '-'} • price: {price.price ?? '-'} • promo: {price.promotionPrice ?? '-'} • min: {price.buyMin ?? 0} • max: {price.buyMax ?? 0}
+                            </div>
+                          ))}
+                        </div>
+                      : <p className="text-sm text-gray-500">ไม่มีข้อมูลราคาแบบละเอียด</p>}
+                  </div>
+
+                  <div className="rounded-2xl border bg-white p-4 space-y-3">
+                    <h3 className="font-semibold text-gray-900">Stock details</h3>
+                    {(((selectedProduct.stockDetails as Array<{ productLotId?: number; stockNum?: number; expiryDate?: string | null }>) || []).length > 0)
+                      ? <div className="space-y-2">
+                          {((selectedProduct.stockDetails as Array<{ productLotId?: number; stockNum?: number; expiryDate?: string | null }>) || []).map((stock, index) => (
+                            <div key={index} className="rounded-lg border bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                              lot: {stock.productLotId || '-'} • qty: {stock.stockNum ?? 0} • expiry: {stock.expiryDate || '-'}
+                            </div>
+                          ))}
+                        </div>
+                      : <p className="text-sm text-gray-500">ไม่มีข้อมูล stock detail</p>}
                   </div>
 
                   <div className="rounded-2xl border bg-white p-4 space-y-3">

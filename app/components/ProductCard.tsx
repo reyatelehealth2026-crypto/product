@@ -21,9 +21,12 @@ interface ProductCardProps {
 export default function ProductCard({ product, selected, onToggle, onViewDetails }: ProductCardProps) {
   const images = (product.images as Array<{ photo_path: string }>) || [];
   const hashtags = (product.hashtags as string[]) || [];
-  const units = (product.units as Array<{ unit: string; contain: number }>) || [];
+  const units = (product.units as Array<{ unit: string; contain?: number; unitNum?: number }>) || [];
+  const prices = (product.prices as Array<{ price?: number; promotionPrice?: number; buyMin?: number; buyMax?: number }>) || [];
+  const stockDetails = (product.stockDetails as Array<{ stockNum?: number; expiryDate?: string | null }>) || [];
   
-  const displayPrice = product.promotionPrice || product.salePrice || product.basePrice;
+  const primaryPrice = prices.find((price) => typeof price.price === 'number');
+  const displayPrice = product.promotionPrice || product.salePrice || primaryPrice?.promotionPrice || primaryPrice?.price || product.basePrice;
   const hasDiscount = product.promotionPrice && product.promotionPrice < product.basePrice;
   const discountPercent = hasDiscount
     ? Math.round(((Number(product.basePrice) - Number(product.promotionPrice!)) / Number(product.basePrice)) * 100)
@@ -98,12 +101,12 @@ export default function ProductCard({ product, selected, onToggle, onViewDetails
       <CardContent className="p-3 space-y-2">
         {/* Promotion Badge - Special Offer Style */}
         {hasDiscount && (
-          <div className="flex flex-wrap gap-1 mb-2">
+          <div className="flex flex-wrap gap-1 mb-2 justify-center">
             <span className="px-2 py-0.5 bg-cyan-100 text-cyan-700 text-[10px] rounded">
-              เริ่ม 0 ชิ้น
+              เริ่ม {primaryPrice?.buyMin ?? 0} ชิ้น
             </span>
             <span className="px-2 py-0.5 bg-cyan-100 text-cyan-700 text-[10px] rounded">
-              ขั้นต่ำ 0 ชิ้น
+              สูงสุด {primaryPrice?.buyMax ?? 0} ชิ้น
             </span>
           </div>
         )}
@@ -140,7 +143,10 @@ export default function ProductCard({ product, selected, onToggle, onViewDetails
         {/* Promotion Condition Box */}
         {hasDiscount && (
           <div className="border border-red-200 rounded-md p-2 text-center text-xs text-red-600 bg-red-50">
-            <p>ซื้อ 2 กล่อง(50ชิ้น) ขึ้นไป ลดต่อชิ้นละ 4.00 บาท</p>
+            <p>
+              ราคาโปร{typeof primaryPrice?.buyMin === 'number' ? ` • ขั้นต่ำ ${primaryPrice.buyMin}` : ''}
+              {typeof primaryPrice?.buyMax === 'number' ? ` • สูงสุด ${primaryPrice.buyMax}` : ''}
+            </p>
           </div>
         )}
         
@@ -183,6 +189,11 @@ export default function ProductCard({ product, selected, onToggle, onViewDetails
         )}>
           {isInStock ? `คงเหลือ: ${product.stockQuantity} ${product.stockUnit || 'ชิ้น'}` : 'สินค้าหมด'}
         </p>
+        {stockDetails.length > 0 && (
+          <p className="text-[10px] text-center text-gray-400">
+            {stockDetails.length} lot / expiry tracked
+          </p>
+        )}
 
         {onViewDetails && (
           <button
