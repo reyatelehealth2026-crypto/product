@@ -38,6 +38,7 @@ export async function GET(request: NextRequest) {
         where.isPromotion = true;
         break;
       case 'new':
+      case 'recommend':
         where.isRecommend = true;
         break;
       case 'bestseller':
@@ -46,14 +47,32 @@ export async function GET(request: NextRequest) {
       case 'rx':
         where.isRx = true;
         break;
+      case 'discount':
+        where.promotionPrice = { not: null };
+        break;
+      case 'in_stock':
+        where.stockQuantity = { gt: 0 };
+        break;
+      case 'out_of_stock':
+        where.stockQuantity = { lte: 0 };
+        break;
+      case 'hashtag':
+        where.hashtags = { not: Prisma.JsonNull };
+        break;
     }
     
     // Build orderBy
     const orderBy: Prisma.ProductOrderByWithRelationInput = {};
     if (sortBy === 'price') {
       orderBy.basePrice = sortOrder as Prisma.SortOrder;
+    } else if (sortBy === 'promotionPrice') {
+      orderBy.promotionPrice = sortOrder as Prisma.SortOrder;
     } else if (sortBy === 'stock') {
       orderBy.stockQuantity = sortOrder as Prisma.SortOrder;
+    } else if (sortBy === 'bestseller') {
+      orderBy.isBestseller = sortOrder as Prisma.SortOrder;
+    } else if (sortBy === 'flashsale') {
+      orderBy.isFlashsale = sortOrder as Prisma.SortOrder;
     } else {
       orderBy.name = sortOrder as Prisma.SortOrder;
     }

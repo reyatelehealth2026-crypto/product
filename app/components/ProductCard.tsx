@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Check, Package, X } from 'lucide-react';
+import { Check, Eye, Package, X } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -15,9 +15,10 @@ interface ProductCardProps {
   product: ProductWithPromotions;
   selected: boolean;
   onToggle: () => void;
+  onViewDetails?: () => void;
 }
 
-export default function ProductCard({ product, selected, onToggle }: ProductCardProps) {
+export default function ProductCard({ product, selected, onToggle, onViewDetails }: ProductCardProps) {
   const images = (product.images as Array<{ photo_path: string }>) || [];
   const hashtags = (product.hashtags as string[]) || [];
   const units = (product.units as Array<{ unit: string; contain: number }>) || [];
@@ -182,6 +183,20 @@ export default function ProductCard({ product, selected, onToggle }: ProductCard
         )}>
           {isInStock ? `คงเหลือ: ${product.stockQuantity} ${product.stockUnit || 'ชิ้น'}` : 'สินค้าหมด'}
         </p>
+
+        {onViewDetails && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewDetails();
+            }}
+            className="w-full mt-2 inline-flex items-center justify-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <Eye className="w-4 h-4" />
+            ดูรายละเอียด
+          </button>
+        )}
       </CardContent>
     </Card>
   );
