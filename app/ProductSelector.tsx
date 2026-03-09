@@ -47,6 +47,8 @@ interface ProductWithPromotions extends Product {
   promotions: Promotion[];
 }
 
+const asArray = <T,>(value: unknown): T[] => Array.isArray(value) ? (value as T[]) : [];
+
 const FILTERS: { key: FilterType; label: string; icon: React.ElementType; color: string }[] = [
   { key: 'all', label: 'ทั้งหมด', icon: Package, color: 'text-gray-700' },
   { key: 'flashsale', label: 'Flash Sale', icon: Zap, color: 'text-red-600' },
@@ -830,8 +832,8 @@ export default function ProductSelector() {
                   <div className="rounded-2xl border bg-white p-4 space-y-3">
                     <h3 className="font-semibold text-gray-900">หน่วยขาย</h3>
                     <div className="flex flex-wrap gap-2">
-                      {(((selectedProduct.units as Array<{ unit: string; contain?: number; unitNum?: number }>) || []).length > 0)
-                        ? ((selectedProduct.units as Array<{ unit: string; contain?: number; unitNum?: number }>) || []).map((unit, index) => (
+                      {(asArray<{ unit: string; contain?: number; unitNum?: number }>(selectedProduct.units).length > 0)
+                        ? asArray<{ unit: string; contain?: number; unitNum?: number }>(selectedProduct.units).map((unit, index) => (
                             <div key={index} className="rounded-lg border bg-gray-50 px-3 py-2 text-sm text-gray-700">
                               {unit.unit}
                               {typeof unit.contain === 'number' ? ` • contain ${unit.contain}` : ''}
@@ -844,9 +846,9 @@ export default function ProductSelector() {
 
                   <div className="rounded-2xl border bg-white p-4 space-y-3">
                     <h3 className="font-semibold text-gray-900">ราคาแบบ normalized</h3>
-                    {(((selectedProduct.prices as Array<{ price?: number; promotionPrice?: number; buyMin?: number; buyMax?: number; productUnitId?: number }>) || []).length > 0)
+                    {(asArray<{ price?: number; promotionPrice?: number; buyMin?: number; buyMax?: number; productUnitId?: number }>(selectedProduct.prices).length > 0)
                       ? <div className="space-y-2">
-                          {((selectedProduct.prices as Array<{ price?: number; promotionPrice?: number; buyMin?: number; buyMax?: number; productUnitId?: number }>) || []).map((price, index) => (
+                          {asArray<{ price?: number; promotionPrice?: number; buyMin?: number; buyMax?: number; productUnitId?: number }>(selectedProduct.prices).map((price, index) => (
                             <div key={index} className="rounded-lg border bg-gray-50 px-3 py-2 text-sm text-gray-700">
                               unitId: {price.productUnitId || '-'} • price: {price.price ?? '-'} • promo: {price.promotionPrice ?? '-'} • min: {price.buyMin ?? 0} • max: {price.buyMax ?? 0}
                             </div>
@@ -857,9 +859,9 @@ export default function ProductSelector() {
 
                   <div className="rounded-2xl border bg-white p-4 space-y-3">
                     <h3 className="font-semibold text-gray-900">Stock details</h3>
-                    {(((selectedProduct.stockDetails as Array<{ productLotId?: number; stockNum?: number; expiryDate?: string | null }>) || []).length > 0)
+                    {(asArray<{ productLotId?: number; stockNum?: number; expiryDate?: string | null }>(selectedProduct.stockDetails).length > 0)
                       ? <div className="space-y-2">
-                          {((selectedProduct.stockDetails as Array<{ productLotId?: number; stockNum?: number; expiryDate?: string | null }>) || []).map((stock, index) => (
+                          {asArray<{ productLotId?: number; stockNum?: number; expiryDate?: string | null }>(selectedProduct.stockDetails).map((stock, index) => (
                             <div key={index} className="rounded-lg border bg-gray-50 px-3 py-2 text-sm text-gray-700">
                               lot: {stock.productLotId || '-'} • qty: {stock.stockNum ?? 0} • expiry: {stock.expiryDate || '-'}
                             </div>
@@ -871,8 +873,8 @@ export default function ProductSelector() {
                   <div className="rounded-2xl border bg-white p-4 space-y-3">
                     <h3 className="font-semibold text-gray-900">Hashtags / Related</h3>
                     <div className="flex flex-wrap gap-2">
-                      {(((selectedProduct.hashtags as string[]) || []).length > 0)
-                        ? ((selectedProduct.hashtags as string[]) || []).map((tag, index) => (
+                      {(asArray<string>(selectedProduct.hashtags).length > 0)
+                        ? asArray<string>(selectedProduct.hashtags).map((tag, index) => (
                             <span key={index} className="px-3 py-1 rounded-full bg-yellow-100 text-yellow-800 text-xs font-medium">#{tag}</span>
                           ))
                         : <p className="text-sm text-gray-500">ไม่มี hashtag</p>}

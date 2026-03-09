@@ -19,11 +19,11 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product, selected, onToggle, onViewDetails }: ProductCardProps) {
-  const images = (product.images as Array<{ photo_path: string }>) || [];
-  const hashtags = (product.hashtags as string[]) || [];
-  const units = (product.units as Array<{ unit: string; contain?: number; unitNum?: number }>) || [];
-  const prices = (product.prices as Array<{ price?: number; promotionPrice?: number; buyMin?: number; buyMax?: number }>) || [];
-  const stockDetails = (product.stockDetails as Array<{ stockNum?: number; expiryDate?: string | null }>) || [];
+  const images = Array.isArray(product.images) ? (product.images as Array<{ photo_path: string }>) : [];
+  const hashtags = Array.isArray(product.hashtags) ? (product.hashtags as string[]) : [];
+  const units = Array.isArray(product.units) ? (product.units as Array<{ unit: string; contain?: number; unitNum?: number }>) : [];
+  const prices = Array.isArray(product.prices) ? (product.prices as Array<{ price?: number; promotionPrice?: number; buyMin?: number; buyMax?: number }>) : [];
+  const stockDetails = Array.isArray(product.stockDetails) ? (product.stockDetails as Array<{ stockNum?: number; expiryDate?: string | null }>) : [];
   
   const primaryPrice = prices.find((price) => typeof price.price === 'number');
   const displayPrice = product.promotionPrice || product.salePrice || primaryPrice?.promotionPrice || primaryPrice?.price || product.basePrice;
