@@ -33,10 +33,7 @@ model Product {
   images            Json?
   hashtags          Json?
   units             Json?
-  prices            Json?
-  stockDetails      Json?     @map("stock_details")
   relatedProducts   Json?     @map("related_products")
-  flashSaleInfo     Json?     @map("flash_sale_info")
   
   // Relations
   promotions        Promotion[]
