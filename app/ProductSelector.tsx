@@ -845,16 +845,29 @@ export default function ProductSelector() {
                   </div>
 
                   <div className="rounded-2xl border bg-white p-4 space-y-3">
-                    <h3 className="font-semibold text-gray-900">ข้อมูลราคาและสต็อก</h3>
-                    <div className="rounded-lg border bg-gray-50 px-3 py-2 text-sm text-gray-700">
-                      ราคาปกติ: {Number(selectedProduct.basePrice).toLocaleString()}
-                    </div>
-                    <div className="rounded-lg border bg-gray-50 px-3 py-2 text-sm text-gray-700">
-                      ราคาโปร: {selectedProduct.promotionPrice ? Number(selectedProduct.promotionPrice).toLocaleString() : '-'}
-                    </div>
-                    <div className="rounded-lg border bg-gray-50 px-3 py-2 text-sm text-gray-700">
-                      สต็อกคงเหลือ: {selectedProduct.stockQuantity.toLocaleString()} {selectedProduct.stockUnit || 'ชิ้น'}
-                    </div>
+                    <h3 className="font-semibold text-gray-900">ราคาแบบ normalized</h3>
+                    {asArray<{ price?: number; promotionPrice?: number; buyMin?: number; buyMax?: number; productUnitId?: number }>(selectedProduct.prices).length > 0
+                      ? <div className="space-y-2">
+                          {asArray<{ price?: number; promotionPrice?: number; buyMin?: number; buyMax?: number; productUnitId?: number }>(selectedProduct.prices).map((price, index) => (
+                            <div key={index} className="rounded-lg border bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                              unitId: {price.productUnitId || '-'} • price: {price.price ?? '-'} • promo: {price.promotionPrice ?? '-'} • min: {price.buyMin ?? 0} • max: {price.buyMax ?? 0}
+                            </div>
+                          ))}
+                        </div>
+                      : <p className="text-sm text-gray-500">ไม่มีข้อมูลราคาแบบละเอียด</p>}
+                  </div>
+
+                  <div className="rounded-2xl border bg-white p-4 space-y-3">
+                    <h3 className="font-semibold text-gray-900">Stock details</h3>
+                    {asArray<{ productLotId?: number; stockNum?: number; expiryDate?: string | null }>(selectedProduct.stockDetails).length > 0
+                      ? <div className="space-y-2">
+                          {asArray<{ productLotId?: number; stockNum?: number; expiryDate?: string | null }>(selectedProduct.stockDetails).map((stock, index) => (
+                            <div key={index} className="rounded-lg border bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                              lot: {stock.productLotId || '-'} • qty: {stock.stockNum ?? 0} • expiry: {stock.expiryDate || '-'}
+                            </div>
+                          ))}
+                        </div>
+                      : <p className="text-sm text-gray-500">ไม่มีข้อมูล stock detail</p>}
                   </div>
 
                   <div className="rounded-2xl border bg-white p-4 space-y-3">

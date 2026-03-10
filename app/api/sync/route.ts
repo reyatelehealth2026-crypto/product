@@ -313,7 +313,10 @@ export async function POST(request: NextRequest) {
               images: item.product_photo || [],
               hashtags: normalizedHashtags,
               units: normalizedUnits,
+              prices: normalizedPrices,
+              stockDetails: normalizedStockDetails,
               relatedProducts: item.related_products || [],
+              flashSaleInfo: normalizedFlashSaleInfo,
             },
             create: {
               productId: productData.id,
@@ -334,7 +337,10 @@ export async function POST(request: NextRequest) {
               images: item.product_photo || [],
               hashtags: normalizedHashtags,
               units: normalizedUnits,
+              prices: normalizedPrices,
+              stockDetails: normalizedStockDetails,
               relatedProducts: item.related_products || [],
+              flashSaleInfo: normalizedFlashSaleInfo,
             },
           });
 
