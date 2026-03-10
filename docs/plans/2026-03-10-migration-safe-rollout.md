@@ -2,7 +2,7 @@
 
 Date: 2026-03-10
 Project: cny-product-selector
-Status: In progress
+Status: Baseline required before migrate deploy
 
 ## Current findings
 
@@ -16,29 +16,34 @@ It does **not** run:
 - `prisma db push`
 
 ### Database migration state
-There is currently no `prisma/migrations` directory in the project.
-This means schema changes in `prisma/schema.prisma` do not automatically reach production.
+The project now has `prisma/migrations`, but production is an existing non-empty database with no Prisma migration history table established yet.
 
 ## Root cause of the production incident
 The application deployed code that expected new Prisma model columns (`prices`, `stockDetails`, `flashSaleInfo`) before the production database had those columns.
 Prisma then generated queries against non-existent columns, causing `P2022` in production.
 
+## New finding during Step 2
+Running `prisma migrate deploy` failed with:
+- `P3005: The database schema is not empty`
+
+This means the production database must be **baselined** before Prisma Migrate can manage future migrations safely.
+
 ## Safe rollout strategy
 
-### Phase A — Prepare migration workflow
-1. Create proper Prisma migrations locally
-2. Store them in `prisma/migrations`
-3. Ensure deployment has an explicit migration step
+### Phase A — Baseline production
+1. Create a baseline migration history entry that represents the current production schema state
+2. Mark the baseline as already applied in the production database
+3. Keep additive feature migrations separate from the baseline migration
 
-### Phase B — Two-step rollout for schema changes
-1. Deploy migration-compatible code first (old behavior still works)
-2. Run migration on production
-3. Deploy code that actually reads/writes the new columns
+### Phase B — Additive migration rollout
+1. Keep the normalized-column migration as a follow-up migration
+2. Apply it only after baseline history is established
+3. Verify columns exist in production
 
-### Phase C — Backfill data
-1. Re-sync page 1–250 after schema is live
-2. Confirm normalized fields are populated
-3. Only then expose advanced normalized UI again
+### Phase C — Runtime enablement
+1. Re-enable runtime code that writes/reads the new columns
+2. Re-sync page 1–250
+3. Re-enable advanced export/data completeness features
 
 ## Recommended production-safe rule
 Never merge Prisma schema field additions that are referenced by runtime code unless one of these is true:
@@ -46,11 +51,11 @@ Never merge Prisma schema field additions that are referenced by runtime code un
 2. the runtime code is fully gated to avoid selecting the new fields before migration
 
 ## Next concrete implementation steps
-1. Add migration/deploy documentation
-2. Add a safe deploy script for production migrations
-3. Create the initial migration for normalized columns
-4. Keep normalized feature code behind a compatibility-safe rollout
+1. Create a baseline migration placeholder
+2. Resolve migration history with `prisma migrate resolve --applied <baseline_name>`
+3. Re-run `prisma migrate deploy`
+4. Verify additive migration applied successfully
 
 ## Immediate goal for this round
-Do not re-enable normalized DB columns yet.
-Instead, prepare the project so the next schema expansion can be deployed safely without breaking production.
+Do not re-enable normalized runtime usage yet.
+First establish Prisma migration history safely on the existing production database.
