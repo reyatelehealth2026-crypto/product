@@ -59,21 +59,26 @@ function buildProductCell(product: ExportPreviewProduct | null) {
       ...(badges.length
         ? [{
             type: 'box',
-            layout: 'baseline',
+            layout: 'horizontal',
             spacing: '4px',
             contents: badges.map((badge) => ({
-              type: 'text',
-              text: badge,
-              size: 'xxs',
-              color: '#FFFFFF',
-              weight: 'bold',
+              type: 'box',
+              layout: 'vertical',
+              flex: 0,
               backgroundColor: '#0F172A',
               cornerRadius: '8px',
               paddingStart: '4px',
               paddingEnd: '4px',
               paddingTop: '2px',
               paddingBottom: '2px',
-              flex: 0,
+              contents: [{
+                type: 'text',
+                text: badge,
+                size: 'xxs',
+                color: '#FFFFFF',
+                weight: 'bold',
+                flex: 0,
+              }],
             })),
           }]
         : []),
