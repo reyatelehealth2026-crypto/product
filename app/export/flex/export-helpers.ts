@@ -71,9 +71,9 @@ export function buildPreviewDocument(
     const override = bubbleOverrides[index] || {};
     return {
       bubbleIndex: index + 1,
-      subtitle: override.subtitle || `ชุดสินค้า ${index + 1}`,
-      label: override.label || `Bubble ${index + 1}`,
-      note: override.note || '',
+      subtitle: override.subtitle || config.intro,
+      label: override.label || config.title,
+      note: override.note || config.footerText,
       products: group,
       grid: build3x3Grid(group),
     };

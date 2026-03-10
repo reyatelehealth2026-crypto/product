@@ -113,7 +113,7 @@ export function buildFlexPayload(document: ExportPreviewDocument) {
               },
               {
                 type: 'text',
-                text: bubble.subtitle || document.config.intro,
+                text: document.config.intro,
                 size: 'sm',
                 color: '#6B7280',
                 wrap: true,
@@ -137,20 +137,10 @@ export function buildFlexPayload(document: ExportPreviewDocument) {
             contents: [
               {
                 type: 'text',
-                text: bubble.note || document.config.footerText,
+                text: document.config.footerText,
                 size: 'xs',
                 color: '#6B7280',
                 wrap: true,
-              },
-              {
-                type: 'button',
-                style: 'primary',
-                color: '#7C3AED',
-                action: {
-                  type: 'message',
-                  label: document.config.ctaLabel,
-                  text: `${document.config.ctaLabel} - ${bubble.label}`,
-                },
               },
             ],
           },

@@ -52,7 +52,6 @@ export default function ProductGrid3x3Preview({ bubble }: { bubble: ExportPrevie
         <div>
           <p className="text-xs font-medium uppercase tracking-[0.2em] text-violet-500">{bubble.label}</p>
           <h3 className="mt-1 text-sm font-semibold text-slate-900">{bubble.subtitle}</h3>
-          {bubble.note ? <p className="mt-1 text-xs text-slate-500">{bubble.note}</p> : null}
         </div>
         <div className="rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">
           {bubble.products.length}/9 items
