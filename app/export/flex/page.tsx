@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { PrismaClient } from '@prisma/client';
-import ProductGrid3x3Preview from './ProductGrid3x3Preview';
+import FlexExportClient from './FlexExportClient';
 import { buildPreviewDocument } from './export-helpers';
 import { EXPORT_PRESETS } from './export-presets';
 import type { ExportTemplateKey } from './export-types';
@@ -58,53 +58,7 @@ export default async function FlexExportPage({
             </p>
           </section>
         ) : (
-          <section className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)_420px]">
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-base font-semibold text-slate-900">1. Template Panel</h2>
-              <div className="mt-3 space-y-2 text-sm text-slate-600">
-                {Object.entries(EXPORT_PRESETS).map(([key, preset]) => (
-                  <Link
-                    key={key}
-                    href={`/export/flex?ids=${ids.join(',')}&template=${key}`}
-                    className={`block rounded-xl border px-3 py-2 ${config.template === key ? 'border-violet-500 bg-violet-50 text-violet-700' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
-                  >
-                    <div className="font-medium">{preset.title}</div>
-                    <div className="text-xs text-slate-500">{preset.intro}</div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-base font-semibold text-slate-900">2. Global Content Setup</h2>
-              <div className="mt-4 space-y-3 text-sm text-slate-600">
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <div className="text-xs font-medium uppercase tracking-wide text-slate-400">Title</div>
-                  <div className="mt-1 font-medium text-slate-900">{config.title}</div>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <div className="text-xs font-medium uppercase tracking-wide text-slate-400">Intro</div>
-                  <div className="mt-1 text-slate-700">{config.intro}</div>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <div className="text-xs font-medium uppercase tracking-wide text-slate-400">Footer / CTA</div>
-                  <div className="mt-1 text-slate-700">{config.footerText}</div>
-                  <div className="mt-2 inline-flex rounded-full bg-slate-900 px-3 py-1 text-xs font-medium text-white">{config.ctaLabel}</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-base font-semibold text-slate-900">3. Bubble Editor & Preview</h2>
-              <p className="mt-2 text-sm text-slate-500">เลือกสินค้า {products.length} รายการ • สร้างได้ {preview.bubbles.length} bubble</p>
-              <div className="mt-4 space-y-4">
-                {preview.bubbles.map((bubble) => (
-                  <ProductGrid3x3Preview key={bubble.bubbleIndex} bubble={bubble} />
-                ))}
-                <p className="text-xs text-slate-400">ถัดไปจะต่อ per-bubble overrides และ Flex JSON export บน preview model นี้</p>
-              </div>
-            </div>
-          </section>
+          <FlexExportClient initialConfig={config} products={products} />
         )}
       </div>
     </main>
