@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { PrismaClient } from '@prisma/client';
+import ProductGrid3x3Preview from './ProductGrid3x3Preview';
 import { buildPreviewDocument } from './export-helpers';
 import { EXPORT_PRESETS } from './export-presets';
 import type { ExportTemplateKey } from './export-types';
@@ -96,21 +97,11 @@ export default async function FlexExportPage({
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="text-base font-semibold text-slate-900">3. Bubble Editor & Preview</h2>
               <p className="mt-2 text-sm text-slate-500">เลือกสินค้า {products.length} รายการ • สร้างได้ {preview.bubbles.length} bubble</p>
-              <div className="mt-4 space-y-3">
+              <div className="mt-4 space-y-4">
                 {preview.bubbles.map((bubble) => (
-                  <div key={bubble.bubbleIndex} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-900">{bubble.label}</p>
-                        <p className="text-xs text-slate-500">{bubble.subtitle}</p>
-                      </div>
-                      <div className="rounded-full bg-violet-100 px-2.5 py-1 text-xs font-medium text-violet-700">
-                        {bubble.products.length} items
-                      </div>
-                    </div>
-                  </div>
+                  <ProductGrid3x3Preview key={bubble.bubbleIndex} bubble={bubble} />
                 ))}
-                <p className="text-xs text-slate-400">Task ถัดไปจะต่อ bubble overrides + preview grid 3x3 จริงใน panel นี้</p>
+                <p className="text-xs text-slate-400">ถัดไปจะต่อ per-bubble overrides และ Flex JSON export บน preview model นี้</p>
               </div>
             </div>
           </section>
