@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   Search, 
   Package,
@@ -64,6 +65,7 @@ const FILTERS: { key: FilterType; label: string; icon: React.ElementType; color:
 ];
 
 export default function ProductSelector() {
+  const router = useRouter();
   const [products, setProducts] = useState<ProductWithPromotions[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -745,7 +747,7 @@ export default function ProductSelector() {
           <Button
             size="lg"
             className="bg-green-600 hover:bg-green-700 text-white shadow-lg rounded-full px-6"
-            onClick={() => setShowFlexDialog(true)}
+            onClick={() => router.push(`/export/flex?ids=${Array.from(selectedItems).join(',')}`)}
           >
             <Share2 className="w-5 h-5 mr-2" />
             สร้าง Flex Message
