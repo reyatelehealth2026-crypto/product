@@ -1,14 +1,26 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Copy, FileJson } from 'lucide-react';
+import { Copy, Download, FileJson } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import ProductGrid3x3Preview from './ProductGrid3x3Preview';
 import { buildPreviewDocument } from './export-helpers';
-import { buildFlexPayload } from './flex-json';
-import type { ExportBubbleConfig, ExportGlobalConfig, ExportTemplateKey } from './export-types';
+import { buildFlexPayload, buildSingleBubbleFlexPayload } from './flex-json';
+import type { ExportBubbleConfig, ExportGlobalConfig } from './export-types';
 import type { Product } from '@prisma/client';
+
+function downloadJson(filename: string, content: string) {
+  const blob = new Blob([content], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
 
 export default function FlexExportClient({
   initialConfig,
@@ -19,7 +31,8 @@ export default function FlexExportClient({
 }) {
   const [config, setConfig] = useState<ExportGlobalConfig>(initialConfig);
   const [bubbleOverrides, setBubbleOverrides] = useState<Partial<ExportBubbleConfig>[]>([]);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<'all' | `bubble-${number}` | null>(null);
+  const [activeBubbleJsonIndex, setActiveBubbleJsonIndex] = useState<number | null>(null);
 
   const preview = useMemo(
     () => buildPreviewDocument(products, config, bubbleOverrides),
@@ -28,6 +41,11 @@ export default function FlexExportClient({
 
   const flexPayload = useMemo(() => buildFlexPayload(preview), [preview]);
   const flexJson = useMemo(() => JSON.stringify(flexPayload, null, 2), [flexPayload]);
+  const activeBubbleJson = useMemo(() => {
+    if (activeBubbleJsonIndex == null) return null;
+    const payload = buildSingleBubbleFlexPayload(preview, activeBubbleJsonIndex);
+    return payload ? JSON.stringify(payload, null, 2) : null;
+  }, [preview, activeBubbleJsonIndex]);
 
   const updateBubble = (index: number, field: keyof ExportBubbleConfig, value: string) => {
     setBubbleOverrides((prev) => {
@@ -42,14 +60,14 @@ export default function FlexExportClient({
     });
   };
 
-  const copyJson = async () => {
-    await navigator.clipboard.writeText(flexJson);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1600);
+  const copyText = async (content: string, mode: 'all' | `bubble-${number}`) => {
+    await navigator.clipboard.writeText(content);
+    setCopied(mode);
+    setTimeout(() => setCopied(null), 1600);
   };
 
   return (
-    <section className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)_420px]">
+    <section className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)_440px]">
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="text-base font-semibold text-slate-900">1. Global Content Setup</h2>
         <div className="mt-4 space-y-3">
@@ -76,42 +94,73 @@ export default function FlexExportClient({
           </div>
         </div>
 
-        {preview.bubbles.map((bubble, index) => (
-          <div key={bubble.bubbleIndex} className="space-y-3">
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="mb-3 grid gap-3 md:grid-cols-3">
-                <Input
-                  value={bubble.subtitle}
-                  onChange={(e) => updateBubble(index, 'subtitle', e.target.value)}
-                  placeholder="Bubble subtitle"
-                />
-                <Input
-                  value={bubble.label}
-                  onChange={(e) => updateBubble(index, 'label', e.target.value)}
-                  placeholder="Bubble label"
-                />
-                <Input
-                  value={bubble.note}
-                  onChange={(e) => updateBubble(index, 'note', e.target.value)}
-                  placeholder="Bubble note"
-                />
+        {preview.bubbles.map((bubble, index) => {
+          const singleBubblePayload = buildSingleBubbleFlexPayload(preview, index);
+          const singleBubbleJson = singleBubblePayload ? JSON.stringify(singleBubblePayload, null, 2) : '';
+
+          return (
+            <div key={bubble.bubbleIndex} className="space-y-3">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="mb-3 grid gap-3 md:grid-cols-3">
+                  <Input
+                    value={bubble.subtitle}
+                    onChange={(e) => updateBubble(index, 'subtitle', e.target.value)}
+                    placeholder="Bubble subtitle"
+                  />
+                  <Input
+                    value={bubble.label}
+                    onChange={(e) => updateBubble(index, 'label', e.target.value)}
+                    placeholder="Bubble label"
+                  />
+                  <Input
+                    value={bubble.note}
+                    onChange={(e) => updateBubble(index, 'note', e.target.value)}
+                    placeholder="Bubble note"
+                  />
+                </div>
+
+                <div className="mb-3 flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" onClick={() => copyText(singleBubbleJson, `bubble-${index}`)}>
+                    <Copy className="mr-2 h-4 w-4" />
+                    {copied === `bubble-${index}` ? 'คัดลอก bubble แล้ว' : `Copy bubble ${bubble.bubbleIndex}`}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => downloadJson(`flex-bubble-${bubble.bubbleIndex}.json`, singleBubbleJson)}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Download bubble
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setActiveBubbleJsonIndex(activeBubbleJsonIndex === index ? null : index)}>
+                    <FileJson className="mr-2 h-4 w-4" />
+                    {activeBubbleJsonIndex === index ? 'ซ่อน JSON' : 'ดู JSON bubble'}
+                  </Button>
+                </div>
+
+                <ProductGrid3x3Preview bubble={bubble} />
+
+                {activeBubbleJsonIndex === index && activeBubbleJson ? (
+                  <div className="mt-3 rounded-xl border border-slate-200 bg-slate-950 p-3 text-xs text-slate-100">
+                    <pre className="max-h-[360px] overflow-auto whitespace-pre-wrap break-all">{activeBubbleJson}</pre>
+                  </div>
+                ) : null}
               </div>
-              <ProductGrid3x3Preview bubble={bubble} />
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-slate-900">3. Flex JSON Export</h2>
-            <p className="mt-1 text-sm text-slate-500">Copy JSON เพื่อใช้ส่งต่อหรือทดสอบ LINE Flex</p>
+            <p className="mt-1 text-sm text-slate-500">Copy หรือ download JSON ทั้งชุด เพื่อใช้ส่งต่อหรือทดสอบ LINE Flex</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={copyJson}>
+            <Button variant="outline" size="sm" onClick={() => copyText(flexJson, 'all')}>
               <Copy className="mr-2 h-4 w-4" />
-              {copied ? 'คัดลอกแล้ว' : 'Copy JSON'}
+              {copied === 'all' ? 'คัดลอกแล้ว' : 'Copy all'}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => downloadJson('flex-export-all.json', flexJson)}>
+              <Download className="mr-2 h-4 w-4" />
+              Download all
             </Button>
           </div>
         </div>

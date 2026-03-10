@@ -154,3 +154,14 @@ export function buildFlexPayload(document: ExportPreviewDocument) {
     })),
   };
 }
+
+
+export function buildSingleBubbleFlexPayload(document: ExportPreviewDocument, bubbleIndex: number) {
+  const bubble = document.bubbles[bubbleIndex];
+  if (!bubble) return null;
+
+  return {
+    type: 'carousel',
+    contents: [buildFlexPayload({ ...document, bubbles: [bubble] }).contents[0]],
+  };
+}
