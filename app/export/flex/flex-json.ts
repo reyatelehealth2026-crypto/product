@@ -102,7 +102,6 @@ function buildProductCard(product: ExportPreviewProduct | null): object {
                   weight: 'bold',
                   color: '#FFFFFF',
                   align: 'center',
-                  letterSpacing: '1px',
                 },
               ],
             },
