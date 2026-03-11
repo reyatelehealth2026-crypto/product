@@ -187,7 +187,6 @@ function buildProductCard(product: ExportPreviewProduct | null): object {
                 type: 'box',
                 layout: 'vertical',
                 margin: '4px',
-                paddingAll: '8px',
                 borderColor: '#FC8181',
                 borderWidth: '1px',
                 cornerRadius: '6px',
