@@ -37,6 +37,11 @@ export type ExportPreviewProduct = {
   isPromotion: boolean;
   isFlashsale: boolean;
   hashtags: string[];
+  promoLine1?: string;
+  promoLine2?: string;
+  offerStart?: string;
+  offerEnd?: string;
+  productUrl?: string;
 };
 
 export type ExportPreviewBubble = {

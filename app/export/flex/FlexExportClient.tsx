@@ -4,10 +4,8 @@ import { useMemo, useState } from 'react';
 import { Copy, Download, FileJson } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ProductGrid3x3Preview from './ProductGrid3x3Preview';
-import { buildPreviewDocument } from './export-helpers';
 import { buildFlexPayload, buildSingleBubbleFlexPayload } from './flex-json';
-import type { ExportGlobalConfig } from './export-types';
-import type { Product } from '@prisma/client';
+import type { ExportGlobalConfig, ExportPreviewDocument } from './export-types';
 
 function downloadJson(filename: string, content: string) {
   const blob = new Blob([content], { type: 'application/json;charset=utf-8' });
@@ -23,16 +21,16 @@ function downloadJson(filename: string, content: string) {
 
 export default function FlexExportClient({
   initialConfig,
-  products,
+  initialPreview,
 }: {
   initialConfig: ExportGlobalConfig;
-  products: Product[];
+  initialPreview: ExportPreviewDocument;
 }) {
   const [config] = useState<ExportGlobalConfig>(initialConfig);
   const [copied, setCopied] = useState<'all' | `bubble-${number}` | null>(null);
   const [activeBubbleJsonIndex, setActiveBubbleJsonIndex] = useState<number | null>(null);
 
-  const preview = useMemo(() => buildPreviewDocument(products, config, []), [products, config]);
+  const preview = initialPreview;
   const flexPayload = useMemo(() => buildFlexPayload(preview), [preview]);
   const flexJson = useMemo(() => JSON.stringify(flexPayload, null, 2), [flexPayload]);
 

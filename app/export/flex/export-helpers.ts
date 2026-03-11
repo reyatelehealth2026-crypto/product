@@ -1,4 +1,5 @@
 import type { Product } from '@prisma/client';
+import type { CsvProduct } from '@/lib/csv-product';
 import type {
   ExportBubbleConfig,
   ExportGlobalConfig,
@@ -118,6 +119,60 @@ export function getProductUrlFromSku(sku: string): string {
   const numeric = (sku || '').replace(/\D+/g, '');
   const padded = numeric.padStart(4, '0');
   return `https://www.cnypharmacy.com/product/${padded}`;
+}
+
+export function csvProductToPreviewProduct(p: CsvProduct): ExportPreviewProduct {
+  const rawPrice = parseFloat((p.pricePerUnit || '').replace(/[^\d.]/g, '')) || 0;
+  const rawAfter = parseFloat((p.priceAfterDiscount || '').replace(/[^\d.]/g, '')) || 0;
+  const promoPrice = rawAfter > 0 && rawAfter < rawPrice ? rawAfter : null;
+
+  return {
+    productId: parseInt((p.sku || '0').replace(/\D/g, ''), 10) || 0,
+    sku: p.sku,
+    name: p.productName,
+    imageUrl: p.imageUrl || null,
+    basePrice: rawPrice,
+    promotionPrice: promoPrice,
+    flashPrice: null,
+    flashDarkPrice: null,
+    flashRedPrice: null,
+    flashSaleName: p.offerHeader || null,
+    flashMinQty: null,
+    flashMaxQty: null,
+    stockQuantity: 999,
+    isRx: false,
+    isPromotion: !!(p.promoCond1 || p.promoCond2),
+    isFlashsale: false,
+    hashtags: [],
+    promoLine1: p.promoCond1 || '',
+    promoLine2: p.promoCond2 || '',
+    offerStart: p.offerStart || '',
+    offerEnd: p.offerEnd || '',
+    productUrl: p.productUrl || '',
+  };
+}
+
+export function buildPreviewDocumentFromCsv(
+  products: CsvProduct[],
+  config: ExportGlobalConfig,
+  bubbleOverrides: Partial<ExportBubbleConfig>[] = []
+): ExportPreviewDocument {
+  const previewProducts = products.map(csvProductToPreviewProduct);
+  const groups = chunkProductsIntoBubbles(previewProducts, 9);
+
+  const bubbles: ExportPreviewBubble[] = groups.map((group, index) => {
+    const override = bubbleOverrides[index] || {};
+    return {
+      bubbleIndex: index + 1,
+      subtitle: override.subtitle || config.intro,
+      label: override.label || config.title,
+      note: override.note || config.footerText,
+      products: group,
+      grid: build3x3Grid(group),
+    };
+  });
+
+  return { config, bubbles };
 }
 
 
