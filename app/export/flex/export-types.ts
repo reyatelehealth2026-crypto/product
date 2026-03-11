@@ -26,6 +26,10 @@ export type ExportPreviewProduct = {
   imageUrl: string | null;
   basePrice: number;
   promotionPrice: number | null;
+  flashPrice: number | null;
+  flashSaleName: string | null;
+  flashMinQty: number | null;
+  flashMaxQty: number | null;
   stockQuantity: number;
   isRx: boolean;
   isPromotion: boolean;

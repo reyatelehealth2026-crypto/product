@@ -11,8 +11,9 @@ function ProductCell({ product }: { product: ExportPreviewProduct | null }) {
   }
 
   const badges = getProductBadgeTokens(product);
-  const oldPrice = product.basePrice > 0 ? formatNumber(product.basePrice) : null;
-  const newPrice = product.promotionPrice != null ? formatNumber(product.promotionPrice) : oldPrice;
+  const effectivePrice = product.flashPrice ?? product.promotionPrice ?? product.basePrice;
+  const oldPrice = effectivePrice !== product.basePrice && product.basePrice > 0 ? formatNumber(product.basePrice) : null;
+  const newPrice = formatNumber(effectivePrice);
 
   return (
     <div className="aspect-[0.92] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -37,28 +38,41 @@ function ProductCell({ product }: { product: ExportPreviewProduct | null }) {
           {product.name}
         </p>
 
-        <div className="flex items-end gap-2">
-          {oldPrice && product.promotionPrice != null ? (
-            <span className="text-[10px] text-slate-400 line-through">{oldPrice}</span>
-          ) : null}
+        <div className="flex flex-wrap items-end gap-x-2 gap-y-1">
+          {oldPrice ? <span className="text-[10px] text-slate-400 line-through">{oldPrice}</span> : null}
           <span className="text-[13px] font-bold text-red-600">{newPrice}</span>
         </div>
+
+        {product.isFlashsale && (product.flashMinQty || product.flashMaxQty) ? (
+          <p className="text-[10px] font-medium text-amber-700">
+            ต่ำสุด {product.flashMinQty ?? '-'} ชิ้น{product.flashMaxQty ? ` • ไม่เกิน ${product.flashMaxQty} ชิ้น` : ''}
+          </p>
+        ) : null}
       </div>
     </div>
   );
 }
 
 export default function ProductGrid3x3Preview({ bubble }: { bubble: ExportPreviewBubble }) {
-  const isFlashStyle = bubble.label.toLowerCase().includes('flash');
+  const isFlashStyle = bubble.products.some((product) => product.isFlashsale) || bubble.label.toLowerCase().includes('flash');
+  const flashMetaProduct = bubble.products.find((product) => product.flashSaleName);
 
   return (
     <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
-      <div className={isFlashStyle ? 'bg-gradient-to-r from-slate-900 via-slate-800 to-yellow-400 px-4 py-3 text-white' : 'bg-violet-600 px-4 py-3 text-white'}>
+      <div
+        className={
+          isFlashStyle
+            ? 'bg-gradient-to-r from-slate-900 via-slate-800 to-yellow-400 px-4 py-3 text-white'
+            : 'bg-violet-600 px-4 py-3 text-white'
+        }
+      >
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-white/80">{isFlashStyle ? 'Hot Deal' : 'Product Set'}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-white/80">
+              {isFlashStyle ? 'Hot Deal' : 'Product Set'}
+            </p>
             <h3 className="mt-1 text-base font-black tracking-wide">{bubble.label}</h3>
-            <p className="mt-0.5 text-xs text-white/85">{bubble.subtitle}</p>
+            <p className="mt-0.5 text-xs text-white/85">{flashMetaProduct?.flashSaleName || bubble.subtitle}</p>
           </div>
           <div className="rounded-full bg-white/15 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-white">
             {isFlashStyle ? 'FLASH' : `${bubble.products.length}/9`}

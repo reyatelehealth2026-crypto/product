@@ -9,6 +9,14 @@ import type {
 
 const PUBLIC_IMAGE_HOST = 'https://manager.cnypharmacy.com';
 
+type FlashSaleMeta = {
+  name?: string;
+  min_item?: number | string;
+  max_item?: number | string;
+  discount?: number | string;
+  discount_type?: string;
+};
+
 export function getResolvedExportImageUrl(product: Pick<Product, 'images'>): string | null {
   const images = Array.isArray(product.images) ? (product.images as Array<{ photo_path?: string | null }>) : [];
   const photoPath = images[0]?.photo_path;
@@ -37,13 +45,24 @@ export function toPreviewProduct(product: Product): ExportPreviewProduct {
         .filter(Boolean)
     : [];
 
+  const basePrice = Number(product.basePrice || 0);
+  const promotionPrice = product.promotionPrice != null ? Number(product.promotionPrice) : null;
+  const flashMeta = Array.isArray(product.flashSaleInfo)
+    ? parseFlashSaleMeta(product.flashSaleInfo[0])
+    : parseFlashSaleMeta(product.flashSaleInfo);
+  const flashPrice = getFlashSaleDerivedPrice(basePrice, flashMeta);
+
   return {
     productId: product.productId,
     sku: product.sku,
     name: product.name,
     imageUrl: getResolvedExportImageUrl(product),
-    basePrice: Number(product.basePrice || 0),
-    promotionPrice: product.promotionPrice != null ? Number(product.promotionPrice) : null,
+    basePrice,
+    promotionPrice,
+    flashPrice,
+    flashSaleName: flashMeta?.name || null,
+    flashMinQty: toNumber(flashMeta?.min_item),
+    flashMaxQty: toNumber(flashMeta?.max_item),
     stockQuantity: product.stockQuantity,
     isRx: product.isRx,
     isPromotion: product.isPromotion,
@@ -91,4 +110,41 @@ export function getProductUrlFromSku(sku: string): string {
   const numeric = (sku || '').replace(/\D+/g, '');
   const padded = numeric.padStart(4, '0');
   return `https://www.cnypharmacy.com/product/${padded}`;
+}
+
+
+function parseFlashSaleMeta(value: unknown): FlashSaleMeta | null {
+  if (!value) return null;
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value) as FlashSaleMeta;
+    } catch {
+      return null;
+    }
+  }
+  if (typeof value === 'object') return value as FlashSaleMeta;
+  return null;
+}
+
+function toNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getFlashSaleDerivedPrice(basePrice: number, flash: FlashSaleMeta | null): number | null {
+  if (!flash) return null;
+  const discount = toNumber(flash.discount);
+  if (discount == null) return null;
+  const discountType = String(flash.discount_type || '').toLowerCase();
+
+  if (discountType === 'baht') {
+    return Math.max(basePrice - discount, 0);
+  }
+
+  if (discountType === 'percent' || discountType === 'percentage') {
+    return Math.max(basePrice - (basePrice * discount) / 100, 0);
+  }
+
+  return null;
 }
