@@ -157,18 +157,25 @@ export function buildFlexPayload(document: ExportPreviewDocument) {
               },
               {
                 type: 'box',
-                layout: 'baseline',
+                layout: 'horizontal',
                 contents: [
                   {
-                    type: 'text',
-                    text: isFlashStyle ? 'FLASH' : `${bubble.products.length}/9 ITEMS`,
-                    size: 'xxs',
-                    weight: 'bold',
-                    color: '#FFFFFF',
+                    type: 'box',
+                    layout: 'vertical',
+                    flex: 0,
                     backgroundColor: '#EF4444',
                     paddingAll: '4px',
                     cornerRadius: '8px',
-                    flex: 0,
+                    contents: [
+                      {
+                        type: 'text',
+                        text: isFlashStyle ? 'FLASH' : `${bubble.products.length}/9 ITEMS`,
+                        size: 'xxs',
+                        weight: 'bold',
+                        color: '#FFFFFF',
+                        flex: 0,
+                      },
+                    ],
                   },
                 ],
               },
