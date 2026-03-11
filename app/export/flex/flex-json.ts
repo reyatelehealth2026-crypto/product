@@ -433,10 +433,26 @@ export function buildMultiProductBubble(bubble: any) {
         layout: 'horizontal',
         spacing: 'sm',
         contents: row.map((product: any) => {
-          const productUrl = product.productUrl || 'https://manager.cnypharmacy.com';
-          const salePrice = Number(product.salePrice) || 0;
-          const regularPrice = Number(product.regularPrice) || 0;
-          const displayPrice = salePrice > 0 ? salePrice : regularPrice;
+          const productUrl = product.productUrl || getProductUrlFromSku(product.sku);
+
+          const salePrice = product.flashDarkPrice ?? product.flashPrice ?? product.promotionPrice ?? product.basePrice ?? 0;
+          const originalPrice = product.flashRedPrice ?? product.basePrice ?? 0;
+          const hasDiscount = originalPrice > salePrice;
+
+          // Extract unit from format like [TMA-OTC3]
+          const unitLabel = (() => {
+            if (!product.name) return '';
+            const match = product.name.match(/\[([A-Z0-9-]+)\]/);
+            return match ? match[1] : '';
+          })();
+
+          const salePriceText = unitLabel
+            ? `${formatPrice(salePrice)} -/ ${unitLabel}`
+            : `${formatPrice(salePrice)}`;
+
+          const discountedText = unitLabel
+            ? `ลดเหลือ ${formatPrice(originalPrice)} / ${unitLabel}`
+            : `ลดเหลือ ${formatPrice(originalPrice)}`;
           
           return {
             type: 'box',
@@ -589,14 +605,14 @@ export function buildMultiProductBubble(bubble: any) {
                 contents: [
                   {
                     type: 'text',
-                    text: displayPrice.toFixed(2),
+                    text: salePriceText,
                     size: 'xs',
                     color: '#C53030',
                     weight: 'bold',
                   },
                 ],
               },
-              ...(salePrice > 0 && salePrice < regularPrice
+              ...(hasDiscount
                 ? [
                     {
                       type: 'box',
@@ -607,10 +623,9 @@ export function buildMultiProductBubble(bubble: any) {
                       contents: [
                         {
                           type: 'text',
-                          text: regularPrice.toFixed(2),
+                          text: discountedText,
                           size: 'xxs',
                           color: '#A0AEC0',
-                          decoration: 'line-through',
                         },
                       ],
                     },
