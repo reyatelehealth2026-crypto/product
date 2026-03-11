@@ -80,7 +80,7 @@ function buildProductCard(product: ExportPreviewProduct | null): object {
         {
           type: 'box',
           layout: 'horizontal',
-          justifyContent: 'center',
+          align: 'center',
           paddingTop: '0px',
           paddingBottom: '0px',
           contents: [
@@ -94,7 +94,6 @@ function buildProductCard(product: ExportPreviewProduct | null): object {
               paddingBottom: '6px',
               paddingLeft: '14px',
               paddingRight: '14px',
-              offsetTop: '-1px',
               contents: [
                 {
                   type: 'text',
