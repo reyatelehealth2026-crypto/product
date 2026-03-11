@@ -48,7 +48,38 @@ interface ProductWithPromotions extends Product {
   promotions: Promotion[];
 }
 
+type FlashOverride = {
+  sku: string;
+  darkPrice: number | null;
+  redPrice: number | null;
+  minItem: number | null;
+  maxItem: number | null;
+  quota: number | null;
+  usage: number | null;
+  usageShow: number | null;
+  campaignName: string | null;
+};
+
 const asArray = <T,>(value: unknown): T[] => Array.isArray(value) ? (value as T[]) : [];
+
+const toNumber = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const parseFlashMeta = (value: unknown): { flashsale_id?: number | string } | null => {
+  if (!value) return null;
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value) as { flashsale_id?: number | string };
+    } catch {
+      return null;
+    }
+  }
+  if (typeof value === 'object') return value as { flashsale_id?: number | string };
+  return null;
+};
 
 const FILTERS: { key: FilterType; label: string; icon: React.ElementType; color: string }[] = [
   { key: 'all', label: 'ทั้งหมด', icon: Package, color: 'text-gray-700' },
@@ -72,6 +103,7 @@ export default function ProductSelector() {
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
   const [selectedProduct, setSelectedProduct] = useState<ProductWithPromotions | null>(null);
+  const [selectedProductFlash, setSelectedProductFlash] = useState<FlashOverride | null>(null);
   const [showFlexDialog, setShowFlexDialog] = useState(false);
   const [copied, setCopied] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -225,6 +257,55 @@ export default function ProductSelector() {
   useEffect(() => {
     fetchProducts();
   }, [fetchProducts]);
+
+  useEffect(() => {
+    const loadSelectedProductFlash = async () => {
+      if (!selectedProduct?.isFlashsale) {
+        setSelectedProductFlash(null);
+        return;
+      }
+
+      const flashEntries = asArray<unknown>(selectedProduct.flashSaleInfo);
+      const flashId = flashEntries
+        .map(parseFlashMeta)
+        .map((entry) => toNumber(entry?.flashsale_id))
+        .find((value): value is number => value != null);
+
+      if (!flashId) {
+        setSelectedProductFlash(null);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/flashsale?id=${flashId}`);
+        const result = await response.json();
+        const rows = Array.isArray(result?.data) ? result.data : Array.isArray(result) ? result : [];
+        const match = rows.find((item: any) => String(item?.sku) === String(selectedProduct.sku));
+
+        if (!match) {
+          setSelectedProductFlash(null);
+          return;
+        }
+
+        setSelectedProductFlash({
+          sku: String(match.sku || selectedProduct.sku),
+          darkPrice: toNumber(match.dark_price),
+          redPrice: toNumber(match.red_price),
+          minItem: toNumber(match.min_item),
+          maxItem: toNumber(match.max_item),
+          quota: toNumber(match.quota),
+          usage: toNumber(match.usage),
+          usageShow: toNumber(match.usage_show),
+          campaignName: typeof match.name === 'string' ? match.name : null,
+        });
+      } catch (error) {
+        console.error('Failed to load flash override:', error);
+        setSelectedProductFlash(null);
+      }
+    };
+
+    loadSelectedProductFlash();
+  }, [selectedProduct]);
 
   // Toggle selection
   const toggleSelection = useCallback((productId: number) => {
@@ -821,14 +902,30 @@ export default function ProductSelector() {
                   <div className="rounded-2xl border bg-white p-4 space-y-3">
                     <h3 className="font-semibold text-gray-900">ราคาและสต็อก</h3>
                     <div className="flex items-end gap-3">
-                      {selectedProduct.promotionPrice && Number(selectedProduct.promotionPrice) < Number(selectedProduct.basePrice) && (
-                        <span className="text-sm text-gray-400 line-through">฿{Number(selectedProduct.basePrice).toLocaleString()}</span>
-                      )}
-                      <span className="text-2xl font-bold text-red-600">฿{Number(selectedProduct.promotionPrice || selectedProduct.salePrice || selectedProduct.basePrice).toLocaleString()}</span>
+                      {(() => {
+                        const redPrice = selectedProductFlash?.redPrice;
+                        const darkPrice = selectedProductFlash?.darkPrice ?? Number(selectedProduct.promotionPrice || selectedProduct.salePrice || selectedProduct.basePrice);
+                        return (
+                          <>
+                            {redPrice && redPrice > darkPrice ? (
+                              <span className="text-sm text-gray-400 line-through">฿{redPrice.toLocaleString()}</span>
+                            ) : null}
+                            <span className="text-2xl font-bold text-red-600">฿{darkPrice.toLocaleString()}</span>
+                          </>
+                        );
+                      })()}
                     </div>
-                    <p className={cn('text-sm font-medium', selectedProduct.stockQuantity > 0 ? 'text-green-600' : 'text-red-500')}>
-                      {selectedProduct.stockQuantity > 0 ? `คงเหลือ ${selectedProduct.stockQuantity.toLocaleString()} ${selectedProduct.stockUnit || 'ชิ้น'}` : 'สินค้าหมด'}
+                    {selectedProductFlash?.campaignName ? (
+                      <p className="text-xs font-medium text-amber-700">{selectedProductFlash.campaignName}</p>
+                    ) : null}
+                    <p className={cn('text-sm font-medium', ((selectedProductFlash?.quota != null && selectedProductFlash?.usage != null ? Math.max(selectedProductFlash.quota - selectedProductFlash.usage, 0) : selectedProduct.stockQuantity) > 0) ? 'text-green-600' : 'text-red-500')}>
+                      {((selectedProductFlash?.quota != null && selectedProductFlash?.usage != null ? Math.max(selectedProductFlash.quota - selectedProductFlash.usage, 0) : selectedProduct.stockQuantity) > 0)
+                        ? `คงเหลือ ${(selectedProductFlash?.quota != null && selectedProductFlash?.usage != null ? Math.max(selectedProductFlash.quota - selectedProductFlash.usage, 0) : selectedProduct.stockQuantity).toLocaleString()} ${selectedProduct.stockUnit || 'ชิ้น'}`
+                        : 'สินค้าหมด'}
                     </p>
+                    {selectedProductFlash && (selectedProductFlash.minItem || selectedProductFlash.maxItem) ? (
+                      <p className="text-xs text-amber-700">ขั้นต่ำ {selectedProductFlash.minItem ?? '-'} ชิ้น • สูงสุด {selectedProductFlash.maxItem ?? '-' } ชิ้น</p>
+                    ) : null}
                   </div>
 
                   <div className="rounded-2xl border bg-white p-4 space-y-3">
