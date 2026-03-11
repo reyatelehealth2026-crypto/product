@@ -70,7 +70,8 @@ function buildProductCard(product: ExportPreviewProduct | null): object {
       type: 'box',
       layout: 'vertical',
       spacing: 'none',
-      paddingAll: '0px',
+      paddingTop: '0px',
+      paddingBottom: '0px',
       borderColor: '#E53E3E',
       borderWidth: '2px',
       cornerRadius: '16px',
@@ -91,7 +92,8 @@ function buildProductCard(product: ExportPreviewProduct | null): object {
               cornerRadius: '12px',
               paddingTop: '6px',
               paddingBottom: '6px',
-              paddingAll: '14px',
+              paddingLeft: '14px',
+              paddingRight: '14px',
               offsetTop: '-1px',
               contents: [
                 {
@@ -126,7 +128,8 @@ function buildProductCard(product: ExportPreviewProduct | null): object {
                 type: 'box',
                 layout: 'horizontal',
                 spacing: '4px',
-                paddingAll: '8px',
+                paddingLeft: '8px',
+                paddingRight: '8px',
                 paddingBottom: '4px',
                 contents: [
                   ...(minQty > 0
@@ -137,7 +140,8 @@ function buildProductCard(product: ExportPreviewProduct | null): object {
                           flex: 0,
                           backgroundColor: '#EBF8FF',
                           cornerRadius: '999px',
-                          paddingAll: '8px',
+                          paddingLeft: '8px',
+                          paddingRight: '8px',
                           paddingTop: '3px',
                           paddingBottom: '3px',
                           contents: [
@@ -160,7 +164,8 @@ function buildProductCard(product: ExportPreviewProduct | null): object {
                           flex: 0,
                           backgroundColor: '#EBF8FF',
                           cornerRadius: '999px',
-                          paddingAll: '8px',
+                          paddingLeft: '8px',
+                          paddingRight: '8px',
                           paddingTop: '3px',
                           paddingBottom: '3px',
                           contents: [
@@ -190,7 +195,10 @@ function buildProductCard(product: ExportPreviewProduct | null): object {
                 borderColor: '#FC8181',
                 borderWidth: '1px',
                 cornerRadius: '6px',
-                paddingAll: '5px',
+                paddingLeft: '5px',
+                paddingRight: '5px',
+                paddingTop: '5px',
+                paddingBottom: '5px',
                 contents: [
                   ...(dateStart
                     ? [
@@ -254,7 +262,8 @@ function buildProductCard(product: ExportPreviewProduct | null): object {
           wrap: true,
           maxLines: 3,
           margin: '6px',
-          paddingAll: '8px',
+          paddingLeft: '8px',
+          paddingRight: '8px',
           action: { type: 'uri', uri: productUrl },
           decoration: 'underline',
         },
@@ -266,7 +275,8 @@ function buildProductCard(product: ExportPreviewProduct | null): object {
                 type: 'box',
                 layout: 'vertical',
                 margin: '4px',
-                paddingAll: '8px',
+                paddingLeft: '8px',
+                paddingRight: '8px',
                 contents: [
                   ...(promoLine1
                     ? [
@@ -305,7 +315,8 @@ function buildProductCard(product: ExportPreviewProduct | null): object {
           weight: 'bold',
           color: '#C53030',
           margin: '6px',
-          paddingAll: '8px',
+          paddingLeft: '8px',
+          paddingRight: '8px',
           wrap: true,
         },
 
@@ -317,7 +328,8 @@ function buildProductCard(product: ExportPreviewProduct | null): object {
                 text: discountedText,
                 size: 'xxs',
                 color: '#718096',
-                paddingAll: '8px',
+                paddingLeft: '8px',
+                paddingRight: '8px',
               },
             ]
           : []),
