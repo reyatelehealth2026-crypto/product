@@ -80,10 +80,12 @@ function buildProductCard(product: ExportPreviewProduct | null): object {
         {
           type: 'box',
           layout: 'horizontal',
-          align: 'center',
           paddingTop: '0px',
           paddingBottom: '0px',
           contents: [
+            {
+              type: 'filler',
+            },
             {
               type: 'box',
               layout: 'vertical',
@@ -101,9 +103,11 @@ function buildProductCard(product: ExportPreviewProduct | null): object {
                   size: 'xxs',
                   weight: 'bold',
                   color: '#FFFFFF',
-                  align: 'center',
                 },
               ],
+            },
+            {
+              type: 'filler',
             },
           ],
         },
