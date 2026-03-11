@@ -434,6 +434,10 @@ export function buildMultiProductBubble(bubble: any) {
         spacing: 'sm',
         contents: row.map((product: any) => {
           const productUrl = product.productUrl || 'https://manager.cnypharmacy.com';
+          const salePrice = Number(product.salePrice) || 0;
+          const regularPrice = Number(product.regularPrice) || 0;
+          const displayPrice = salePrice > 0 ? salePrice : regularPrice;
+          
           return {
             type: 'box',
             layout: 'vertical',
@@ -478,14 +482,14 @@ export function buildMultiProductBubble(bubble: any) {
                 contents: [
                   {
                     type: 'text',
-                    text: (product.salePrice > 0 ? product.salePrice : product.regularPrice).toFixed(2),
+                    text: displayPrice.toFixed(2),
                     size: 'xs',
                     color: '#C53030',
                     weight: 'bold',
                   },
                 ],
               },
-              ...(product.salePrice > 0 && product.salePrice < product.regularPrice
+              ...(salePrice > 0 && salePrice < regularPrice
                 ? [
                     {
                       type: 'box',
@@ -493,7 +497,7 @@ export function buildMultiProductBubble(bubble: any) {
                       contents: [
                         {
                           type: 'text',
-                          text: product.regularPrice.toFixed(2),
+                          text: regularPrice.toFixed(2),
                           size: 'xxs',
                           color: '#A0AEC0',
                           decoration: 'line-through',
