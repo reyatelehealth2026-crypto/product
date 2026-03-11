@@ -21,6 +21,7 @@ export type ExportBubbleConfig = {
 
 export type ExportPreviewProduct = {
   productId: number;
+  sku: string;
   name: string;
   imageUrl: string | null;
   basePrice: number;

@@ -1,9 +1,8 @@
 import type { ExportPreviewDocument, ExportPreviewProduct } from './export-types';
-import { getProductBadgeTokens } from './export-helpers';
+import { getProductBadgeTokens, getProductUrlFromSku } from './export-helpers';
 
-function formatPrice(product: ExportPreviewProduct) {
-  const price = product.promotionPrice ?? product.basePrice;
-  return `฿${Number(price || 0).toLocaleString()}`;
+function formatPrice(value: number | null | undefined) {
+  return Number(value || 0).toLocaleString();
 }
 
 function buildProductCell(product: ExportPreviewProduct | null) {
@@ -20,6 +19,9 @@ function buildProductCell(product: ExportPreviewProduct | null) {
   }
 
   const badges = getProductBadgeTokens(product).slice(0, 2);
+  const productUrl = getProductUrlFromSku(product.sku);
+  const oldPrice = product.basePrice > 0 ? formatPrice(product.basePrice) : null;
+  const newPrice = product.promotionPrice != null ? formatPrice(product.promotionPrice) : oldPrice;
 
   return {
     type: 'box',
@@ -31,6 +33,10 @@ function buildProductCell(product: ExportPreviewProduct | null) {
     borderColor: '#E2E8F0',
     borderWidth: '1px',
     paddingAll: '6px',
+    action: {
+      type: 'uri',
+      uri: productUrl,
+    },
     contents: [
       {
         type: 'image',
@@ -39,22 +45,10 @@ function buildProductCell(product: ExportPreviewProduct | null) {
         aspectMode: 'cover',
         aspectRatio: '1:1',
         gravity: 'center',
-      },
-      {
-        type: 'text',
-        text: product.name,
-        size: 'xs',
-        weight: 'bold',
-        color: '#0F172A',
-        wrap: true,
-        maxLines: 2,
-      },
-      {
-        type: 'text',
-        text: formatPrice(product),
-        size: 'xs',
-        weight: 'bold',
-        color: '#E11D48',
+        action: {
+          type: 'uri',
+          uri: productUrl,
+        },
       },
       ...(badges.length
         ? [{
@@ -65,7 +59,7 @@ function buildProductCell(product: ExportPreviewProduct | null) {
               type: 'box',
               layout: 'vertical',
               flex: 0,
-              backgroundColor: '#0F172A',
+              backgroundColor: '#EF4444',
               cornerRadius: '8px',
               paddingStart: '4px',
               paddingEnd: '4px',
@@ -73,7 +67,7 @@ function buildProductCell(product: ExportPreviewProduct | null) {
               paddingBottom: '2px',
               contents: [{
                 type: 'text',
-                text: badge,
+                text: badge === 'Flash' ? 'FLASH' : badge,
                 size: 'xxs',
                 color: '#FFFFFF',
                 weight: 'bold',
@@ -82,11 +76,47 @@ function buildProductCell(product: ExportPreviewProduct | null) {
             })),
           }]
         : []),
+      {
+        type: 'text',
+        text: product.name,
+        size: 'xs',
+        weight: 'bold',
+        color: '#0F172A',
+        wrap: true,
+        maxLines: 2,
+      },
+      {
+        type: 'box',
+        layout: 'baseline',
+        spacing: '6px',
+        contents: [
+          ...(oldPrice && product.promotionPrice != null
+            ? [{
+                type: 'text',
+                text: oldPrice,
+                size: 'xxs',
+                color: '#94A3B8',
+                decoration: 'line-through',
+                flex: 0,
+              }]
+            : []),
+          {
+            type: 'text',
+            text: newPrice || '0',
+            size: 'xs',
+            weight: 'bold',
+            color: '#DC2626',
+            flex: 0,
+          },
+        ],
+      },
     ],
   };
 }
 
 export function buildFlexPayload(document: ExportPreviewDocument) {
+  const isFlashStyle = document.config.template === 'flashsale';
+
   return {
     type: 'carousel',
     contents: document.bubbles.map((bubble) => ({
@@ -96,44 +126,72 @@ export function buildFlexPayload(document: ExportPreviewDocument) {
         type: 'box',
         layout: 'vertical',
         spacing: '12px',
-        paddingAll: '16px',
+        paddingAll: '0px',
         contents: [
           {
             type: 'box',
             layout: 'vertical',
             spacing: '4px',
+            paddingAll: '16px',
+            background: {
+              type: 'linearGradient',
+              angle: '0deg',
+              startColor: isFlashStyle ? '#111827' : '#6D28D9',
+              endColor: isFlashStyle ? '#FACC15' : '#8B5CF6',
+            },
             contents: [
               {
                 type: 'text',
                 text: document.config.title,
-                size: 'lg',
+                size: 'xl',
                 weight: 'bold',
-                color: '#111827',
+                color: '#FFFFFF',
                 wrap: true,
               },
               {
                 type: 'text',
                 text: document.config.intro,
                 size: 'sm',
-                color: '#6B7280',
+                color: '#F8FAFC',
                 wrap: true,
               },
+              {
+                type: 'box',
+                layout: 'baseline',
+                contents: [
+                  {
+                    type: 'text',
+                    text: isFlashStyle ? 'FLASH' : `${bubble.products.length}/9 ITEMS`,
+                    size: 'xxs',
+                    weight: 'bold',
+                    color: '#FFFFFF',
+                    backgroundColor: '#EF4444',
+                    paddingAll: '4px',
+                    cornerRadius: '8px',
+                    flex: 0,
+                  },
+                ],
+              },
             ],
-          },
-          ...bubble.grid.map((row) => ({
-            type: 'box',
-            layout: 'horizontal',
-            spacing: '8px',
-            contents: row.map((product) => buildProductCell(product)),
-          })),
-          {
-            type: 'separator',
-            margin: 'md',
           },
           {
             type: 'box',
             layout: 'vertical',
             spacing: '8px',
+            paddingAll: '16px',
+            contents: bubble.grid.map((row) => ({
+              type: 'box',
+              layout: 'horizontal',
+              spacing: '8px',
+              contents: row.map((product) => buildProductCell(product)),
+            })),
+          },
+          {
+            type: 'box',
+            layout: 'vertical',
+            paddingStart: '16px',
+            paddingEnd: '16px',
+            paddingBottom: '16px',
             contents: [
               {
                 type: 'text',
@@ -149,7 +207,6 @@ export function buildFlexPayload(document: ExportPreviewDocument) {
     })),
   };
 }
-
 
 export function buildSingleBubbleFlexPayload(document: ExportPreviewDocument, bubbleIndex: number) {
   const bubble = document.bubbles[bubbleIndex];

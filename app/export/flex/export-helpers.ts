@@ -39,6 +39,7 @@ export function toPreviewProduct(product: Product): ExportPreviewProduct {
 
   return {
     productId: product.productId,
+    sku: product.sku,
     name: product.name,
     imageUrl: getResolvedExportImageUrl(product),
     basePrice: Number(product.basePrice || 0),
@@ -83,4 +84,11 @@ export function buildPreviewDocument(
     config,
     bubbles,
   };
+}
+
+
+export function getProductUrlFromSku(sku: string): string {
+  const numeric = (sku || '').replace(/\D+/g, '');
+  const padded = numeric.padStart(4, '0');
+  return `https://www.cnypharmacy.com/product/${padded}`;
 }
