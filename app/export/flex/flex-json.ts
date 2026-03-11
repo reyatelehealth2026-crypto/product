@@ -20,9 +20,10 @@ function buildProductCell(product: ExportPreviewProduct | null) {
 
   const badges = getProductBadgeTokens(product).slice(0, 2);
   const productUrl = getProductUrlFromSku(product.sku);
-  const effectivePriceValue = product.flashPrice ?? product.promotionPrice ?? product.basePrice;
-  const oldPrice = effectivePriceValue !== product.basePrice && product.basePrice > 0 ? formatPrice(product.basePrice) : null;
-  const newPrice = formatPrice(effectivePriceValue);
+  const darkPriceValue = product.flashDarkPrice ?? product.flashPrice ?? product.promotionPrice ?? product.basePrice;
+  const redPriceValue = product.flashRedPrice ?? product.basePrice;
+  const oldPrice = redPriceValue > darkPriceValue ? formatPrice(redPriceValue) : null;
+  const newPrice = formatPrice(darkPriceValue);
 
   return {
     type: 'box',
@@ -95,7 +96,7 @@ function buildProductCell(product: ExportPreviewProduct | null) {
         layout: 'baseline',
         spacing: '6px',
         contents: [
-          ...(oldPrice && effectivePriceValue !== product.basePrice
+          ...(oldPrice
             ? [
                 {
                   type: 'text',

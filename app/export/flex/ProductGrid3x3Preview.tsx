@@ -11,9 +11,10 @@ function ProductCell({ product }: { product: ExportPreviewProduct | null }) {
   }
 
   const badges = getProductBadgeTokens(product);
-  const effectivePrice = product.flashPrice ?? product.promotionPrice ?? product.basePrice;
-  const oldPrice = effectivePrice !== product.basePrice && product.basePrice > 0 ? formatNumber(product.basePrice) : null;
-  const newPrice = formatNumber(effectivePrice);
+  const darkPrice = product.flashDarkPrice ?? product.flashPrice ?? product.promotionPrice ?? product.basePrice;
+  const redPrice = product.flashRedPrice ?? product.basePrice;
+  const oldPrice = redPrice > darkPrice ? formatNumber(redPrice) : null;
+  const newPrice = formatNumber(darkPrice);
 
   return (
     <div className="aspect-[0.92] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">

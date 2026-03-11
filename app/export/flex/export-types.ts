@@ -27,6 +27,8 @@ export type ExportPreviewProduct = {
   basePrice: number;
   promotionPrice: number | null;
   flashPrice: number | null;
+  flashDarkPrice: number | null;
+  flashRedPrice: number | null;
   flashSaleName: string | null;
   flashMinQty: number | null;
   flashMaxQty: number | null;

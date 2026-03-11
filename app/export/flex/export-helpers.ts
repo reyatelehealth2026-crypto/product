@@ -15,6 +15,10 @@ type FlashSaleMeta = {
   max_item?: number | string;
   discount?: number | string;
   discount_type?: string;
+  dark_price?: number | string;
+  red_price?: number | string;
+  quota?: number | string;
+  usage?: number | string;
 };
 
 export function getResolvedExportImageUrl(product: Pick<Product, 'images'>): string | null {
@@ -50,7 +54,9 @@ export function toPreviewProduct(product: Product): ExportPreviewProduct {
   const flashMeta = Array.isArray(product.flashSaleInfo)
     ? parseFlashSaleMeta(product.flashSaleInfo[0])
     : parseFlashSaleMeta(product.flashSaleInfo);
-  const flashPrice = getFlashSaleDerivedPrice(basePrice, flashMeta);
+  const flashDarkPrice = toNumber(flashMeta?.dark_price);
+  const flashRedPrice = toNumber(flashMeta?.red_price);
+  const flashPrice = flashDarkPrice ?? getFlashSaleDerivedPrice(basePrice, flashMeta);
 
   return {
     productId: product.productId,
@@ -60,6 +66,8 @@ export function toPreviewProduct(product: Product): ExportPreviewProduct {
     basePrice,
     promotionPrice,
     flashPrice,
+    flashDarkPrice,
+    flashRedPrice,
     flashSaleName: flashMeta?.name || null,
     flashMinQty: toNumber(flashMeta?.min_item),
     flashMaxQty: toNumber(flashMeta?.max_item),
