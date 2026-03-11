@@ -444,13 +444,31 @@ export function buildMultiProductBubble(bubble: any) {
             flex: 1,
             borderColor: '#E53E3E',
             borderWidth: '1px',
-            cornerRadius: '8px',
-            paddingTop: '8px',
-            paddingBottom: '8px',
-            paddingStart: '8px',
-            paddingEnd: '8px',
+            cornerRadius: '16px',
+            paddingTop: '0px',
+            paddingBottom: '0px',
+            paddingStart: '0px',
+            paddingEnd: '0px',
+            spacing: 'none',
             action: { type: 'uri', uri: productUrl },
             contents: [
+              {
+                type: 'box',
+                layout: 'vertical',
+                backgroundColor: '#C53030',
+                paddingTop: '4px',
+                paddingBottom: '4px',
+                contents: [
+                  {
+                    type: 'text',
+                    text: 'SPECIAL OFFER',
+                    size: 'xxs',
+                    weight: 'bold',
+                    color: '#FFFFFF',
+                    align: 'center',
+                  },
+                ],
+              },
               {
                 type: 'image',
                 url: product.imageUrl || 'https://manager.cnypharmacy.com/uploads/product_photo/placeholder.jpg',
@@ -458,11 +476,39 @@ export function buildMultiProductBubble(bubble: any) {
                 aspectMode: 'fit',
                 aspectRatio: '1:1',
                 gravity: 'center',
+                margin: 'sm',
               },
+              ...(product.dateStart || product.dateEnd
+                ? [
+                    {
+                      type: 'box',
+                      layout: 'vertical',
+                      margin: 'sm',
+                      borderColor: '#FC8181',
+                      borderWidth: '1px',
+                      cornerRadius: '6px',
+                      paddingStart: '4px',
+                      paddingEnd: '4px',
+                      paddingTop: '2px',
+                      paddingBottom: '2px',
+                      contents: [
+                        {
+                          type: 'text',
+                          text: `เริ่ม ${product.dateStart || ''}\nถึง ${product.dateEnd || ''}`,
+                          size: 'xxs',
+                          color: '#E53E3E',
+                          wrap: true,
+                        }
+                      ],
+                    },
+                  ]
+                : []),
               {
                 type: 'box',
                 layout: 'vertical',
                 margin: 'sm',
+                paddingStart: '8px',
+                paddingEnd: '8px',
                 contents: [
                   {
                     type: 'text',
@@ -475,10 +521,71 @@ export function buildMultiProductBubble(bubble: any) {
                   },
                 ],
               },
+              ...((product.minQty && product.minQty > 0) || (product.maxQty && product.maxQty > 0) || product.promoLine1 || product.promoLine2
+                ? [
+                    {
+                      type: 'box',
+                      layout: 'vertical',
+                      margin: 'sm',
+                      paddingStart: '8px',
+                      paddingEnd: '8px',
+                      contents: [
+                        ...(product.minQty && product.minQty > 0
+                          ? [
+                              {
+                                type: 'text',
+                                text: `ขั้นต่ำ ${product.minQty} ชิ้น`,
+                                size: 'xxs',
+                                color: '#555555',
+                              },
+                            ]
+                          : []),
+                        ...(product.maxQty && product.maxQty > 0
+                          ? [
+                              {
+                                type: 'text',
+                                text: `จำกัด ${product.maxQty} ชิ้น`,
+                                size: 'xxs',
+                                color: '#555555',
+                              },
+                            ]
+                          : []),
+                        ...(product.promoLine1
+                          ? [
+                              {
+                                type: 'text',
+                                text: product.promoLine1,
+                                size: 'xxs',
+                                color: '#555555',
+                                wrap: true,
+                                maxLines: 2,
+                              },
+                            ]
+                          : []),
+                        ...(product.promoLine2
+                          ? [
+                              {
+                                type: 'text',
+                                text: product.promoLine2,
+                                size: 'xxs',
+                                color: '#555555',
+                                wrap: true,
+                                maxLines: 2,
+                              },
+                            ]
+                          : []),
+                      ]
+                    }
+                  ]
+                : []),
               {
                 type: 'box',
                 layout: 'vertical',
-                margin: 'sm',
+                margin: 'none',
+                paddingStart: '8px',
+                paddingEnd: '8px',
+                paddingTop: '4px',
+                paddingBottom: '8px',
                 contents: [
                   {
                     type: 'text',
@@ -494,6 +601,9 @@ export function buildMultiProductBubble(bubble: any) {
                     {
                       type: 'box',
                       layout: 'vertical',
+                      paddingStart: '8px',
+                      paddingEnd: '8px',
+                      paddingBottom: '8px',
                       contents: [
                         {
                           type: 'text',
@@ -506,18 +616,6 @@ export function buildMultiProductBubble(bubble: any) {
                     },
                   ]
                 : []),
-              {
-                type: 'button',
-                style: 'primary',
-                color: '#E53E3E',
-                margin: 'sm',
-                height: 'sm',
-                action: {
-                  type: 'uri',
-                  label: 'ซื้อเลย',
-                  uri: productUrl,
-                },
-              },
             ],
           };
         }),
