@@ -258,17 +258,23 @@ function buildProductCard(product: ExportPreviewProduct | null): object {
 
         // Product name
         {
-          type: 'text',
-          text: product.name,
-          size: 'xxs',
-          color: '#1A5276',
-          wrap: true,
-          maxLines: 3,
+          type: 'box',
+          layout: 'vertical',
           margin: '6px',
           paddingStart: '8px',
           paddingEnd: '8px',
           action: { type: 'uri', uri: productUrl },
-          decoration: 'underline',
+          contents: [
+            {
+              type: 'text',
+              text: product.name,
+              size: 'xxs',
+              color: '#1A5276',
+              wrap: true,
+              maxLines: 3,
+              decoration: 'underline',
+            },
+          ],
         },
 
         // Promo conditions
@@ -312,27 +318,39 @@ function buildProductCard(product: ExportPreviewProduct | null): object {
 
         // Sale price
         {
-          type: 'text',
-          text: salePriceText,
-          size: 'sm',
-          weight: 'bold',
-          color: '#C53030',
+          type: 'box',
+          layout: 'vertical',
           margin: '6px',
           paddingStart: '8px',
           paddingEnd: '8px',
-          wrap: true,
+          contents: [
+            {
+              type: 'text',
+              text: salePriceText,
+              size: 'sm',
+              weight: 'bold',
+              color: '#C53030',
+              wrap: true,
+            },
+          ],
         },
 
         // Original price (if discounted)
         ...(hasDiscount
           ? [
               {
-                type: 'text',
-                text: discountedText,
-                size: 'xxs',
-                color: '#718096',
+                type: 'box',
+                layout: 'vertical',
                 paddingStart: '8px',
                 paddingEnd: '8px',
+                contents: [
+                  {
+                    type: 'text',
+                    text: discountedText,
+                    size: 'xxs',
+                    color: '#718096',
+                  },
+                ],
               },
             ]
           : []),
