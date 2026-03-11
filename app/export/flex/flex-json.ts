@@ -374,12 +374,9 @@ function buildProductCard(product: ExportPreviewProduct | null): object {
 }
 
 export function buildFlexPayload(document: ExportPreviewDocument) {
-  // Each product becomes its own bubble in a carousel
-  const allProducts = document.bubbles.flatMap((b) => b.products);
-
   return {
     type: 'carousel',
-    contents: allProducts.map((product) => buildProductCard(product)),
+    contents: document.bubbles.map((bubble) => buildMultiProductBubble(bubble)),
   };
 }
 
@@ -387,8 +384,140 @@ export function buildSingleBubbleFlexPayload(document: ExportPreviewDocument, bu
   const bubble = document.bubbles[bubbleIndex];
   if (!bubble) return null;
 
+  // Even for a single bubble preview, wrap it in a carousel structure to match LINE format
   return {
     type: 'carousel',
-    contents: bubble.products.map((product) => buildProductCard(product)),
+    contents: [buildMultiProductBubble(bubble)],
+  };
+}
+
+export function buildMultiProductBubble(bubble: any) {
+  // Group products into rows of 3 (max 3 items per row for LINE Flex)
+  const rows = [];
+  for (let i = 0; i < bubble.products.length; i += 3) {
+    rows.push(bubble.products.slice(i, i + 3));
+  }
+
+  return {
+    type: 'bubble',
+    size: 'giga',
+    header: {
+      type: 'box',
+      layout: 'vertical',
+      paddingTop: '12px',
+      paddingBottom: '12px',
+      paddingStart: '12px',
+      paddingEnd: '12px',
+      backgroundColor: '#C53030',
+      contents: [
+        {
+          type: 'text',
+          text: 'แบรนด์ระดับโลกที่แพทย์และเภสัชกรไว้ใจ! ช้อปสินค้า SUN PHARMA/RANBAXY วันนี้ ในราคาที่คุณประหยัดกว่า',
+          weight: 'bold',
+          color: '#FFFFFF',
+          wrap: true,
+          size: 'sm',
+        },
+      ],
+    },
+    body: {
+      type: 'box',
+      layout: 'vertical',
+      spacing: 'md',
+      paddingTop: '12px',
+      paddingBottom: '12px',
+      paddingStart: '12px',
+      paddingEnd: '12px',
+      contents: rows.map((row) => ({
+        type: 'box',
+        layout: 'horizontal',
+        spacing: 'sm',
+        contents: row.map((product: any) => {
+          const productUrl = product.productUrl || 'https://manager.cnypharmacy.com';
+          return {
+            type: 'box',
+            layout: 'vertical',
+            flex: 1,
+            borderColor: '#E53E3E',
+            borderWidth: '1px',
+            cornerRadius: '8px',
+            paddingTop: '8px',
+            paddingBottom: '8px',
+            paddingStart: '8px',
+            paddingEnd: '8px',
+            action: { type: 'uri', uri: productUrl },
+            contents: [
+              {
+                type: 'image',
+                url: product.imageUrl || 'https://manager.cnypharmacy.com/uploads/product_photo/placeholder.jpg',
+                size: 'full',
+                aspectMode: 'fit',
+                aspectRatio: '1:1',
+                gravity: 'center',
+              },
+              {
+                type: 'box',
+                layout: 'vertical',
+                margin: 'sm',
+                contents: [
+                  {
+                    type: 'text',
+                    text: product.name,
+                    size: 'xxs',
+                    color: '#1A5276',
+                    wrap: true,
+                    maxLines: 2,
+                    weight: 'bold',
+                  },
+                ],
+              },
+              {
+                type: 'box',
+                layout: 'vertical',
+                margin: 'sm',
+                contents: [
+                  {
+                    type: 'text',
+                    text: (product.salePrice > 0 ? product.salePrice : product.regularPrice).toFixed(2),
+                    size: 'xs',
+                    color: '#C53030',
+                    weight: 'bold',
+                  },
+                ],
+              },
+              ...(product.salePrice > 0 && product.salePrice < product.regularPrice
+                ? [
+                    {
+                      type: 'box',
+                      layout: 'vertical',
+                      contents: [
+                        {
+                          type: 'text',
+                          text: product.regularPrice.toFixed(2),
+                          size: 'xxs',
+                          color: '#A0AEC0',
+                          decoration: 'line-through',
+                        },
+                      ],
+                    },
+                  ]
+                : []),
+              {
+                type: 'button',
+                style: 'primary',
+                color: '#E53E3E',
+                margin: 'sm',
+                height: 'sm',
+                action: {
+                  type: 'uri',
+                  label: 'ซื้อเลย',
+                  uri: productUrl,
+                },
+              },
+            ],
+          };
+        }),
+      })),
+    },
   };
 }
